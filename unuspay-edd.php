@@ -37,27 +37,28 @@ register_activation_hook(__FILE__, 'setup_plugin');
 function setup_plugin()
 {
     global $wpdb;
-    $latestDbVersion = 4;
-    $currentDbVersion = get_option('unuspay_wc_db_version');
+    $latestDbVersion = 5;
+    $currentDbVersion = get_option('unuspay_edd_db_version');
 
     if (!empty($currentDbVersion) && $currentDbVersion >= $latestDbVersion) {
         return;
     }
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta("
-
-		CREATE TABLE  IF NOT EXISTS edd_unuspay_checkouts (
+		CREATE TABLE  IF NOT EXISTS {$wpdb->prefix}edd_unuspay_checkouts (
 			id VARCHAR(36) NOT NULL,
 			order_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 			accept LONGTEXT NOT NULL,
 			created_at datetime NOT NULL DEFAULT '1000-01-01 00:00:00',
 			PRIMARY KEY  (id)
-		);
-        CREATE TABLE  IF NOT EXISTS edd_unuspay_transactions (
+		);"
+        );
+    dbDelta("
+        CREATE TABLE  IF NOT EXISTS {$wpdb->prefix}edd_unuspay_transactions (
         			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         			order_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
         			checkout_id VARCHAR(36) NOT NULL,
-        			tracking_uuid TINYTEXT NOT NULL,
+        			tracking_uuid VARCHAR(64) NOT NULL,
         			blockchain TINYTEXT NOT NULL,
         			transaction_id TINYTEXT NOT NULL,
         			sender_id TINYTEXT NOT NULL,
@@ -70,10 +71,10 @@ function setup_plugin()
         			confirmed_at datetime NOT NULL DEFAULT '1000-01-01 00:00:00',
         			created_at datetime NOT NULL DEFAULT '1000-01-01 00:00:00',
         			PRIMARY KEY  (id),
-        			KEY tracking_uuid_index (tracking_uuid(191))
+        			KEY tracking_uuid_index (tracking_uuid)
         		);
 	");
-    update_option('unuspay_wc_db_version', $latestDbVersion);
+    update_option('unuspay_edd_db_version', $latestDbVersion);
 }
 
 add_filter('edd_payment_gateways', 'unuspay_edd_register_gateway');
@@ -89,13 +90,12 @@ add_filter('edd_settings_sections_gateways', 'unuspay_edd_register_gateway_secti
 
 
 $unuspay_edd_title = "";
-$unuspay_edd_merchant_id = "";
-$unuspay_edd_merchant_key = "";
+$unuspay_edd_payment_key = "";
 
 // Register the Unuspay Gateway settings for Unuspay Gateway subsection
 function unuspay_edd_add_gateway_settings($gateway_settings)
 {
-    global $unuspay_edd_title, $unuspay_edd_merchant_id, $unuspay_edd_merchant_key;
+    global $unuspay_edd_title, $unuspay_edd_payment_key;
 
     $unuspay_intro = '<p style="color:blue"><b>Remember to select Unuspay as one of your active payment gateway.</b></p>';
     $unuspay_intro .= '<p style="margin-top: 10px"><b>UNUSPAY official <a href="https://unuspay.com/" target="_blank">website.</a></b></p>';
@@ -134,7 +134,7 @@ function unuspay_edd_add_gateway_settings($gateway_settings)
             'desc' => __('Unuspay Payment Key', 'easy-digital-downloads'),
             'type' => 'text',
             'size' => 'regular',
-            'std' => $unuspay_edd_merchant_id
+            'std' => $unuspay_edd_payment_key
         ),
 
     );
@@ -153,7 +153,7 @@ function unuspay_edd_init_settings()
     $unuspay_edd_title = edd_get_option(UNUSPAY_GATEWAY_NAME . '_title', '');
     $unuspay_edd_payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
 
-    $arr = array(UNUSPAY_GATEWAY_NAME . '_title', UNUSPAY_GATEWAY_NAME . '_payment_key', UNUSPAY_GATEWAY_NAME . '_merchant_key');
+    $arr = array(UNUSPAY_GATEWAY_NAME . '_title', UNUSPAY_GATEWAY_NAME . '_payment_key');
 
 
     if (!$unuspay_edd_title) {
@@ -207,11 +207,13 @@ function unuspay_edd_admin_notice_for_unuspay_active()
 
 function unuspay_edd_log_error($message)
 {
-    error_log(date('Y-m-d H:i:s') . ' ERROR: ' . $message . "\n", 3, WP_PLUGIN_DIR . "/unuspay-crypto-payment-for-easy-digital-downloads/logs/unuspay-edd-error-log.log");
+    error_log(date('Y-m-d H:i:s') . ' ERROR: ' . $message . "\n", 3, ABSPATH . "/wp-content/plugins/web3-easy-digital-downloads-unuspay-payments/logs/error.log");
+    //error_log(date('Y-m-d H:i:s') . ' ERROR: ' . $message . "\n");
 }
 
 function unuspay_edd_process_payment($purchase_data)
 {
+    try{
     global $wpdb;
     if (!wp_verify_nonce($purchase_data['gateway_nonce'], 'edd-gateway')) {
         unuspay_edd_log_error("[unuspay_edd_process_payment] gateway_nonce is invalid: " . $purchase_data['gateway_nonce']);
@@ -230,30 +232,47 @@ function unuspay_edd_process_payment($purchase_data)
         "status" => "pending"
     );
 
-    $payment = edd_insert_payment($payment_data);
-    if ( $payment) {
+    $payment_id = edd_insert_payment($payment_data);
+    if ( $payment_id) {
 
         $checkout_id = wp_generate_uuid4();
+        $payment = edd_get_payment($payment_id);
         $accept = getUnusPayOrder( $payment ,$checkout_id);
-
-        $result = $wpdb->insert( "edd_unuspay_checkouts", array(
+        /*$accept= array(
+            'name' => 'John',
+            'age' => 30,
+            'city' => 'New York'
+        );*/
+        $result = $wpdb->insert( "{$wpdb->prefix}edd_unuspay_checkouts", array(
             'id' => $checkout_id,
-            'order_id' => $payment.id,
+            'order_id' =>$payment_id,
             'accept' => json_encode( $accept ),
             'created_at' => current_time( 'mysql' )
         ));
         if ( false === $result ) {
             $error_message = $wpdb->last_error;
+
             throw new Exception( 'Storing checkout failed: ' . $error_message );
         }
-
+       /* $redirect_url= "Location: ". 'unuspay-checkout-' . $checkout_id . '@' . time();
+        header($redirect_url);
+        die();
+        return rest_ensure_response( '{}' );*/
+       edd_send_back_to_checkout('?unuspay-checkout=' . $checkout_id . '@' . time());
        /* return( [
             'result'         => 'success',
             'redirect'       => 'unuspay-checkout-' . $checkout_id . '@' . time()
             // 'redirect'       => get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes' ? $order->get_checkout_payment_url() . '#wc-depay-checkout-' . $checkout_id . '@' . time() : '#wc-depay-checkout-' . $checkout_id . '@' . time()
         ] );*/
     }
+    }catch (Exception $e){
+        unuspay_edd_log_error( 'Storing checkout failed: '. $e->getMessage() );
+        wp_die(__('Storing checkout failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
 
+       // edd_send_back_to_checkout();
+        //edd_send_back_to_checkout('?payment-mode=' . $purchase_data['post_data']['edd-gateway']);
+
+    }
     /*if ($payment) {
         $userID = edd_get_payment_user_id($payment);
 
@@ -278,13 +297,14 @@ function unuspay_edd_process_payment($purchase_data)
         'accept-language' => $lang,
         'Content-Type' => 'application/json; charset=utf-8',
     );
-    $website=get_option("website");
+    $website=get_option("siteurl");
 
     $total = $order->total;
     $currency = $order->currency;
 
     $payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
     if ( empty( $payment_key ) ) {
+        unuspay_edd_log_error( 'No payment key found!' );
         throw new Exception( 'No payment key found!' );
     }
 
@@ -295,11 +315,11 @@ function unuspay_edd_process_payment($purchase_data)
                 'checkout_id' => $checkout_id,
                 'website' => $website,
                 'lang' => $lang,
-                'orderNo' => $order->get_id(),
-                'email' => $order->get_billing_email(),
+                'orderNo' => $order->id,
+                'email' => $order->email,
                 'payLinkId' => $payment_key,
                 'currency' => $currency,
-                'amount' => $order->get_total()
+                'amount' => $total
             ]),
             'method' => 'POST',
             'data_format' => 'body'
@@ -308,10 +328,12 @@ function unuspay_edd_process_payment($purchase_data)
     $post_response_code = $post_response['response']['code'];
     $post_response_successful = ! is_wp_error( $post_response_code ) && $post_response_code >= 200 && $post_response_code < 300;
     if(!$post_response_successful){
+        unuspay_edd_log_error( 'ecommerce order failed!' . $post_response->get_error_message() );
         throw new Exception( 'request failed!' );
     }
     $post_response_json = json_decode( $post_response['body']);
     if($post_response_json->code!=200){
+        unuspay_edd_log_error( 'ecommerce order failed!' . $post_response->get_error_message() );
         throw new Exception( 'request failed!' );
     }
 
@@ -321,6 +343,9 @@ add_action('edd_gateway_' . UNUSPAY_GATEWAY_NAME, 'unuspay_edd_process_payment')
 
 function unuspay_edd_cryptocoin_payment($payment)
 {
+    try {
+
+
     if (edd_get_payment_gateway($payment->ID) == UNUSPAY_GATEWAY_NAME && is_object($payment)) {
         $status = $payment->status;
         $amount = edd_get_payment_amount($payment->ID);
@@ -362,6 +387,9 @@ function unuspay_edd_cryptocoin_payment($payment)
             }
         }
     }
+    }catch (Exception $e){
+        unuspay_edd_log_error( 'Storing checkout failed: '. $e->getMessage() );
+    }
 
     return false;
 }
@@ -372,7 +400,7 @@ function unuspay_edd_generate_checkout_token($orderID, $amount, $currency_code)
     global $wpdb;
     $checkout_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT checkout_id FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT checkout_id FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $orderID
         )
     );
@@ -382,9 +410,9 @@ function unuspay_edd_generate_checkout_token($orderID, $amount, $currency_code)
             'redirect'       => 'unuspay-checkout-' . $checkout_id . '@' . time()
             // 'redirect'       => get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes' ? $order->get_checkout_payment_url() . '#wc-depay-checkout-' . $checkout_id . '@' . time() : '#wc-depay-checkout-' . $checkout_id . '@' . time()
         ] );*/
-    $redirect_url= "Location: ". 'unuspay-checkout-' . $checkout_id . '@' . time();
+   /* $redirect_url= "Location: ". 'unuspay-checkout-' . $checkout_id . '@' . time();
     header($redirect_url);
-    die();
+    die();*/
     return rest_ensure_response( '{}' );
     /*$unuspay_edd_merchant_id = edd_get_option(UNUSPAY_GATEWAY_NAME . '_merchant_id', '');
     $unuspay_edd_merchant_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_merchant_key', '');
@@ -679,19 +707,19 @@ function get_checkout_accept($request)
     $id = $request->get_param('id');
     $accept = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT accept FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT accept FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $id
         )
     );
     $order_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT order_id FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT order_id FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $id
         )
     );
     $checkout_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT id FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT id FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $id
         )
     );
@@ -725,13 +753,13 @@ function track_payment($request)
     $id = $jsonBody->id;
     $accept = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT accept FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT accept FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $id
         )
     );
     $order_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT order_id FROM edd_unuspay_checkouts WHERE id = %s LIMIT 1",
+            "SELECT order_id FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
             $id
         )
     );
@@ -746,14 +774,14 @@ function track_payment($request)
     if (empty($transaction_id)) { // PAYMENT TRACE
 
         if ($payment->status('complete') || $payment->status('pending')) {
-            UnusPay_WC_Payments::log('Order has been completed already!');
+            unuspay_edd_log_error('Order has been completed already!');
             throw new Exception('Order has been completed already!');
         }
 
 
     } else { // PAYMENT TRACKING
 
-        $result = $wpdb->insert("edd_unuspay_transactions", array(
+        $result = $wpdb->insert("{$wpdb->prefix}edd_unuspay_transactions", array(
             'order_id' => $order_id,
             'checkout_id' => $id,
             'tracking_uuid' => $tracking_uuid,
@@ -768,7 +796,7 @@ function track_payment($request)
             'created_at' => current_time('mysql')
         ));
         if (false === $result) {
-            UnusPay_WC_Payments::log('Storing tracking failed!');
+            unuspay_edd_log_error('Storing tracking failed!');
             throw new Exception('Storing tracking failed!!');
         }
 
@@ -811,7 +839,7 @@ function check_release($request)
     $checkout_id = $jsonBody->id;
     $existing_transaction_status = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT status FROM edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
+            "SELECT status FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
             $checkout_id
         )
     );
@@ -819,7 +847,7 @@ function check_release($request)
     if ('VALIDATING' === $existing_transaction_status) {
         $tracking_uuid = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT tracking_uuid FROM edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
+                "SELECT tracking_uuid FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
                 $checkout_id
             )
         );
@@ -839,20 +867,20 @@ function check_release($request)
 
             $order_id = $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT order_id FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+                    "SELECT order_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
                     $tracking_uuid
                 )
             );
 
             $expected_blockchain = $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT blockchain FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+                    "SELECT blockchain FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
                     $tracking_uuid
                 )
             );
             $expected_transaction = $wpdb->get_var(
                 $wpdb->prepare(
-                    "SELECT transaction_id FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+                    "SELECT transaction_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
                     $tracking_uuid
                 )
             );
@@ -864,7 +892,7 @@ function check_release($request)
             if ($expected_transaction != $transaction) {
                 $wpdb->query(
                     $wpdb->prepare(
-                        "UPDATE edd_unuspay_transactions SET transaction_id = %s WHERE tracking_uuid = %s",
+                        "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET transaction_id = %s WHERE tracking_uuid = %s",
                         $transaction,
                         $tracking_uuid
                     )
@@ -877,7 +905,7 @@ function check_release($request)
 					) {
                 $wpdb->query(
                     $wpdb->prepare(
-                        "UPDATE edd_unuspay_transactions SET status = %s, confirmed_at = %s, confirmed_by = %s, failed_reason = NULL WHERE tracking_uuid = %s",
+                        "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET status = %s, confirmed_at = %s, confirmed_by = %s, failed_reason = NULL WHERE tracking_uuid = %s",
                         'SUCCESS',
                         current_time('mysql'),
                         'API',
@@ -893,7 +921,7 @@ function check_release($request)
                 UnusPay_WC_Payments::log('Validation failed: ' . $failed_reason);
                 $wpdb->query(
                     $wpdb->prepare(
-                        "UPDATE edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
+                        "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
                         $failed_reason,
                         'FAILED',
                         'API',
@@ -907,7 +935,7 @@ function check_release($request)
 
     $existing_transaction_status = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT status FROM edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
+            "SELECT status FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
             $checkout_id
         )
     );
@@ -920,7 +948,7 @@ function check_release($request)
 
     $order_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT order_id FROM edd_unuspay_transactions WHERE checkout_id = %s ORDER BY id DESC LIMIT 1",
+            "SELECT order_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY id DESC LIMIT 1",
             $checkout_id
         )
     );
@@ -940,7 +968,7 @@ function check_release($request)
     } else {
         $failed_reason = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT failed_reason FROM edd_unuspay_transactions WHERE checkout_id = %s ORDER BY id DESC LIMIT 1",
+                "SELECT failed_reason FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY id DESC LIMIT 1",
                 $checkout_id
             )
         );
@@ -965,7 +993,7 @@ function process_notify(WP_REST_Request $request)
     $tracking_uuid = $request->get_param('trackingId');
     $existing_transaction_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT id FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+            "SELECT id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
             $tracking_uuid
         )
     );
@@ -978,20 +1006,20 @@ function process_notify(WP_REST_Request $request)
 
     $order_id = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT order_id FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+            "SELECT order_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
             $tracking_uuid
         )
     );
 
     $expected_blockchain = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT blockchain FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+            "SELECT blockchain FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
             $tracking_uuid
         )
     );
     $expected_transaction = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT transaction_id FROM edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
+            "SELECT transaction_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
             $tracking_uuid
         )
     );
@@ -1002,7 +1030,7 @@ function process_notify(WP_REST_Request $request)
     if ($expected_transaction != $transaction) {
         $wpdb->query(
             $wpdb->prepare(
-                "UPDATE edd_unuspay_transactions SET transaction_id = %s WHERE tracking_uuid = %s",
+                "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET transaction_id = %s WHERE tracking_uuid = %s",
                 $transaction,
                 $tracking_uuid
             )
@@ -1015,7 +1043,7 @@ function process_notify(WP_REST_Request $request)
     ) {
         $wpdb->query(
             $wpdb->prepare(
-                "UPDATE edd_unuspay_transactions SET status = %s, confirmed_at = %s, confirmed_by = %s, failed_reason = NULL WHERE tracking_uuid = %s",
+                "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET status = %s, confirmed_at = %s, confirmed_by = %s, failed_reason = NULL WHERE tracking_uuid = %s",
                 'SUCCESS',
                 current_time('mysql'),
                 'API',
@@ -1031,7 +1059,7 @@ function process_notify(WP_REST_Request $request)
         UnusPay_WC_Payments::log('Validation failed: ' . $failed_reason);
         $wpdb->query(
             $wpdb->prepare(
-                "UPDATE edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
+                "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
                 $failed_reason,
                 'FAILED',
                 'API',
