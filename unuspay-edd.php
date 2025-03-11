@@ -254,11 +254,11 @@ function unuspay_edd_process_payment($purchase_data)
 
             throw new Exception( 'Storing checkout failed: ' . $error_message );
         }
-       /* $redirect_url= "Location: ". 'unuspay-checkout-' . $checkout_id . '@' . time();
+        $redirect_url= "Location: ". edd_get_checkout_uri(). '#edd-unuspay-checkout-' . $checkout_id . '@' . time();
         header($redirect_url);
         die();
-        return rest_ensure_response( '{}' );*/
-       edd_send_back_to_checkout('?unuspay-checkout=' . $checkout_id . '@' . time());
+        return rest_ensure_response( '{}' );
+       //edd_send_back_to_checkout('?unuspay-checkout=' . $checkout_id . '@' . time());
        /* return( [
             'result'         => 'success',
             'redirect'       => 'unuspay-checkout-' . $checkout_id . '@' . time()
@@ -658,48 +658,48 @@ function unuspay_edd_plugin_row_meta($plugin_meta, $plugin_file)
 add_filter('plugin_row_meta', 'unuspay_edd_plugin_row_meta', 10, 2);
 
 add_action(
-    'rest_api_init',
-    function () {
-        register_rest_route(
-            'unuspay/edd',
-            '/checkouts/(?P<id>[\w-]+)',
-            [
-                'methods' => 'POST',
-                'callback' => 'get_checkout_accept',
-                'permission_callback' => '__return_true'
-            ]
-        );
-        register_rest_route(
-            'unuspay/edd',
-            '/checkouts/(?P<id>[\w-]+)/track',
-            [
-                'methods' => 'POST',
-                'callback' => 'track_payment',
-                'permission_callback' => '__return_true'
-            ]
-        );
-        register_rest_route(
-            'unuspay/edd',
-            '/validate',
-            array(
-                'methods' => 'POST,GET',
-                'callback' => 'process_notify',
-                'permission_callback' => '__return_true'
-            )
-        );
-        register_rest_route(
-            'unuspay/edd',
-            '/release',
-            [
-                'methods' => 'POST',
-                'callback' => 'check_release',
-                'permission_callback' => '__return_true'
-            ]
-        );
-
-    }
+    'rest_api_init','init_rest_api'
 );
 
+function init_rest_api () {
+    register_rest_route(
+        'unuspay/edd',
+        '/checkouts/(?P<id>[\w-]+)',
+        [
+            'methods' => 'POST',
+            'callback' => 'get_checkout_accept',
+            'permission_callback' => '__return_true'
+        ]
+    );
+    register_rest_route(
+        'unuspay/edd',
+        '/checkouts/(?P<id>[\w-]+)/track',
+        [
+            'methods' => 'POST',
+            'callback' => 'track_payment',
+            'permission_callback' => '__return_true'
+        ]
+    );
+    register_rest_route(
+        'unuspay/edd',
+        '/validate',
+        array(
+            'methods' => 'POST,GET',
+            'callback' => 'process_notify',
+            'permission_callback' => '__return_true'
+        )
+    );
+    register_rest_route(
+        'unuspay/edd',
+        '/release',
+        [
+            'methods' => 'POST',
+            'callback' => 'check_release',
+            'permission_callback' => '__return_true'
+        ]
+    );
+
+}
 function get_checkout_accept($request)
 {
 
@@ -739,8 +739,8 @@ function get_checkout_accept($request)
         'request_id' => $id,
         'checkout_id' => $checkout_id,
         'order_id' => $order_id,
-        'total' => $order->get_total(),
-        'currency' => $order->get_currency()
+        'total' => $order->total,
+        'currency' => $order->currency
     ]));
     return $response;
 }
@@ -1072,7 +1072,25 @@ function process_notify(WP_REST_Request $request)
     $response->set_status(200);
     return $response;
 }
+add_action('wp_enqueue_scripts', 'edd_custom_scripts');
 
+function edd_custom_scripts() {
+    // 仅在 EDD 结账页面加载
+    if (edd_is_checkout()) {
+        // 注册脚本（依赖 jQuery）
+        wp_register_script(
+            'edd-unuspay-check',
+            plugin_dir_url(__FILE__) . 'dist/checkout.js', // 脚本路径
+            array( 'wp-api-request', 'jquery' ), // 依赖
+            '1.0', // 版本号
+            true // 在页脚加载
+        );
+
+
+        // 加载脚本
+        wp_enqueue_script('edd-unuspay-check');
+    }
+}
 function get_edd_options()
 {
     global $edd_options;

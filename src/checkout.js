@@ -13,9 +13,10 @@ jQuery(function ($) {
         }
     });
 
-    $("form.woocommerce-checkout").on("submit", async () => {
-        var values = $("form.woocommerce-checkout").serialize();
-        if (values.match("payment_method=unuspay_wc_payments")) {
+    $("form.edd_purchase_form").on("submit", async () => {
+        var values = $("form.edd_purchase_form").serialize();
+        console.log("values",values);
+        if (values.match("edd-gateway=edd_unuspay_gateway")) {
             let { unmount } = await DePayWidgets.Loading({
                 text: "Loading payment data...",
             });
@@ -26,13 +27,13 @@ jQuery(function ($) {
 
 
 const displayCheckout = async () => {
-    if (window.location.hash.startsWith("unuspay-checkout-")) {
+    if (window.location.hash.startsWith("#edd-unuspay-checkout-")) {
         const checkoutId = window.location.hash.match(
-            /wc-unuspay-checkout-(.*?)@/
+            /edd-unuspay-checkout-(.*?)@/
         )[1];
         const response = JSON.parse(
             await wp.apiRequest({
-                path: `/unuspay/wc/checkouts/${checkoutId}`,
+                path: `/unuspay/edd/checkouts/${checkoutId}`,
                 method: "POST",
             })
         );
@@ -64,7 +65,7 @@ const displayCheckout = async () => {
                     return new Promise((resolve, reject) => {
                         try {
                             wp.apiRequest({
-                                path: `/unuspay/wc/checkouts/${checkoutId}/track`,
+                                path: `/unuspay/edd/checkouts/${checkoutId}/track`,
                                 method: "POST",
                                 data: payment,
                             })
@@ -79,7 +80,7 @@ const displayCheckout = async () => {
                     method: () => {
                         return new Promise((resolve, reject) => {
                             wp.apiRequest({
-                                path: "/unuspay/wc/release",
+                                path: "/unuspay/edd/release",
                                 method: "POST",
                                 data: { checkout_id: checkoutId },
                             })
@@ -92,13 +93,7 @@ const displayCheckout = async () => {
                 },
             },
         };
-        if (
-            window.UNUSPAY_WC_CURRENCY &&
-            window.UNUSPAY_WC_CURRENCY.displayCurrency == "store" &&
-            window.UNUSPAY_WC_CURRENCY.storeCurrency?.length
-        ) {
-            configuration.currency = window.UNUSPAY_WC_CURRENCY.storeCurrency;
-        }
+
         DePayWidgets.Payment(configuration);
     }
 };
