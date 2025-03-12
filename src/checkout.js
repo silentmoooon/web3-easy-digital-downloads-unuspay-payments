@@ -13,8 +13,8 @@ jQuery(function ($) {
         }
     });
 
-    $("form.edd_purchase_form").on("submit", async () => {
-        var values = $("form.edd_purchase_form").serialize();
+    $("form.edd-blocks-form__purchase").on("submit", async () => {
+        var values = $("form.edd-blocks-form__purchase").serialize();
         console.log("values",values);
         if (values.match("edd-gateway=edd_unuspay_gateway")) {
             let { unmount } = await DePayWidgets.Loading({

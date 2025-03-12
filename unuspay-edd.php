@@ -1084,6 +1084,9 @@ function edd_custom_scripts()
 {
     // 仅在 EDD 结账页面加载
     //if (edd_is_checkout()) {
+    wp_register_script( 'UNUSPAY_WC_WIDGETS',plugin_dir_url(__FILE__) .'dist/widgets.bundle.js', array(), '1.0', true);
+    wp_enqueue_script( 'UNUSPAY_WC_WIDGETS' );
+
         // 注册脚本（依赖 jQuery）
         wp_register_script(
             'edd-unuspay-check',
