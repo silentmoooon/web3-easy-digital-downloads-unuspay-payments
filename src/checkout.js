@@ -64,10 +64,15 @@ const displayCheckout = async () => {
                 method: (payment) => {
                     return new Promise((resolve, reject) => {
                         try {
+                            payment.id=checkoutId
                             wp.apiRequest({
                                 path: `/unuspay/edd/checkouts/${checkoutId}/track`,
                                 method: "POST",
-                                data: payment,
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                data: JSON.stringify(payment),
+                                dataType: 'json'
                             })
                                 .done(() => resolve({ status: 200 }))
                                 .fail((request, status) => reject(status));

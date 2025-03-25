@@ -754,7 +754,9 @@ function track_payment($request)
 {
 
     global $wpdb;
-    $jsonBody = $request->get_json_params();
+    $body = $request->get_body();
+    $jsonBody = json_decode($body);
+     
     $id = $jsonBody->id;
     $accept = $wpdb->get_var(
         $wpdb->prepare(
@@ -778,7 +780,7 @@ function track_payment($request)
 
     if (empty($transaction_id)) { // PAYMENT TRACE
 
-        if ($payment->status('complete') || $payment->status('pending')) {
+        if ($payment->status=='complete') {
             unuspay_edd_log_error('Order has been completed already!');
             throw new Exception('Order has been completed already!');
         }
@@ -807,13 +809,18 @@ function track_payment($request)
 
     }
 
-    $endpoint = 'http://110.41.71.103:8080/payment/pay';
+    $endpoint = 'http://110.41.71.103:9080/payment/pay';
 
     $jsonBody->callback = get_site_url(null, 'index.php?rest_route=/unuspay/edd/validate');
     $jsonBody->trackingId = $tracking_uuid;
+
+    $headers = array(
+        'Content-Type' => 'application/json; charset=utf-8',
+    );
     $post = wp_remote_post($endpoint,
         array(
-            'body' => json_encode($jsonBody),
+            'headers' => $headers,
+            'body' => $jsonBody,
             'method' => 'POST',
             'data_format' => 'body'
         )
@@ -825,7 +832,7 @@ function track_payment($request)
         $response->set_status(200);
     } else {
         if (is_wp_error($post)) {
-            UnusPay_WC_Payments::log($post->get_error_message());
+            error_log($post->get_error_message());
         } else {
             error_log(wp_remote_retrieve_body($post));
         }
@@ -857,7 +864,7 @@ function check_release($request)
             )
         );
 
-        $endpoint = 'http://110.41.71.103:8080/payment/release';
+        $endpoint = 'http://110.41.71.103:9080/payment/release';
 
         $response = wp_remote_post($endpoint,
             array(
@@ -923,7 +930,7 @@ function check_release($request)
                 if (empty($failed_reason)) {
                     $failed_reason = 'MISMATCH';
                 }
-                UnusPay_WC_Payments::log('Validation failed: ' . $failed_reason);
+                error_log('Validation failed: ' . $failed_reason);
                 $wpdb->query(
                     $wpdb->prepare(
                         "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
@@ -1004,7 +1011,7 @@ function process_notify(WP_REST_Request $request)
     );
 
     if (empty($existing_transaction_id)) {
-        UnusPay_WC_Payments::log('Transaction not found for tracking_uuid');
+        error_log('Transaction not found for tracking_uuid');
         $response->set_status(404);
         return $response;
     }
@@ -1061,7 +1068,7 @@ function process_notify(WP_REST_Request $request)
         if (empty($failed_reason)) {
             $failed_reason = 'MISMATCH';
         }
-        UnusPay_WC_Payments::log('Validation failed: ' . $failed_reason);
+        error_log('Validation failed: ' . $failed_reason);
         $wpdb->query(
             $wpdb->prepare(
                 "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
