@@ -235,16 +235,16 @@ function unuspay_edd_process_payment($purchase_data)
         $payment_id = edd_insert_payment($payment_data);
         if ($payment_id) {
 
-            $checkout_id = wp_generate_uuid4();
+           
             $payment = edd_get_payment($payment_id);
-            $accept = getUnusPayOrder($payment, $checkout_id);
+            $accept = getUnusPayOrder($payment);
             /*$accept= array(
                 'name' => 'John',
                 'age' => 30,
                 'city' => 'New York'
             );*/
             $result = $wpdb->insert("{$wpdb->prefix}edd_unuspay_checkouts", array(
-                'id' => $checkout_id,
+                'id' => $accept->id,
                 'order_id' => $payment_id,
                 'accept' => json_encode($accept),
                 'created_at' => current_time('mysql')
@@ -254,7 +254,7 @@ function unuspay_edd_process_payment($purchase_data)
 
                 throw new Exception('Storing checkout failed: ' . $error_message);
             }
-            $redirect_url = "Location: " . edd_get_checkout_uri() . '#edd-unuspay-checkout-' . $checkout_id . '@' . time();
+            $redirect_url = "Location: " . edd_get_checkout_uri() . '#edd-unuspay-checkout-' . $accept->id . '@' . time();
             header($redirect_url);
             die();
             return rest_ensure_response('{}');
@@ -292,7 +292,7 @@ function unuspay_edd_process_payment($purchase_data)
     }*/
 }
 
-function getUnusPayOrder($order, $checkout_id)
+function getUnusPayOrder($order)
 {
     $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
     $headers = array(
@@ -314,7 +314,6 @@ function getUnusPayOrder($order, $checkout_id)
         array(
             'headers' => $headers,
             'body' => json_encode([
-                'checkout_id' => $checkout_id,
                 'website' => $website,
                 'lang' => $lang,
                 'orderNo' => $order->id,
@@ -755,9 +754,9 @@ function track_payment($request)
 
     global $wpdb;
     $body = $request->get_body();
-    $jsonBody = json_decode($body);
+    $jsonBody = json_decode($body,true);
      
-    $id = $jsonBody->id;
+    $id = $jsonBody["id"];
     $accept = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT accept FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
@@ -776,7 +775,7 @@ function track_payment($request)
 
     $total = $payment->total;
 
-    $transaction_id = $jsonBody->transaction;
+    $transaction_id = $jsonBody["transaction"];
 
     if (empty($transaction_id)) { // PAYMENT TRACE
 
@@ -792,9 +791,9 @@ function track_payment($request)
             'order_id' => $order_id,
             'checkout_id' => $id,
             'tracking_uuid' => $tracking_uuid,
-            'blockchain' => $jsonBody->blockchain,
+            'blockchain' => $jsonBody["blockchain"],
             'transaction_id' => $transaction_id,
-            'sender_id' => $jsonBody->sender,
+            'sender_id' => $jsonBody["sender"],
             'receiver_id' => '',
             'token_id' => '',
             'amount' => 0.00,
@@ -811,16 +810,18 @@ function track_payment($request)
 
     $endpoint = 'http://110.41.71.103:9080/payment/pay';
 
-    $jsonBody->callback = get_site_url(null, 'index.php?rest_route=/unuspay/edd/validate');
-    $jsonBody->trackingId = $tracking_uuid;
+    $jsonBody["callback"] = get_site_url(null, 'index.php?rest_route=/unuspay/edd/validate');
+    $jsonBody["trackingId"] = $tracking_uuid;
+    $jsonBody["orderId"] = $id;
 
     $headers = array(
         'Content-Type' => 'application/json; charset=utf-8',
+        'csrf_token' => $id
     );
     $post = wp_remote_post($endpoint,
         array(
             'headers' => $headers,
-            'body' => $jsonBody,
+            'body' => json_encode($jsonBody),
             'method' => 'POST',
             'data_format' => 'body'
         )
@@ -1115,102 +1116,4 @@ function get_edd_options()
 
     return $edd_options;
 }
-
-
-function process_completed(
-    string $invoice_status,
-    string $invoice_id,
-    int    $order_id,
-    string $event_name
-): void
-{
-    if (!in_array($invoice_status, array('confirmed', 'completed'), true)) {
-        return;
-    }
-
-    $note = 'BitPay Invoice ID: <a target = "_blank" href = "' . BitPayEndpoint::get_url(
-            unuspay_get_edd_options()['test_mode'],
-            $invoice_id
-        ) . '">' . $invoice_id . '</a> processing has been completed.';
-
-    edd_insert_payment_note($order_id, $note);
-    unuspay_bitpay_checkout_transactions->update_status($event_name, $order_id, $invoice_id);
-    edd_update_order_status($order_id, 'complete');
-}
-
-
-function process_processing(
-    string $invoice_status,
-    string $invoice_id,
-    int    $order_id,
-    string $event_name
-): void
-{
-    if ('paid' !== $invoice_status) {
-        return;
-    }
-
-    $note = 'BitPay Invoice ID: <a target = "_blank" href = "' . BitPayEndpoint::get_url(
-            unuspay_get_edd_options()['test_mode'],
-            $invoice_id
-        ) . '">' . $invoice_id . '</a> is processing.';
-
-    edd_insert_payment_note($order_id, $note);
-    unuspay_bitpay_checkout_transactions->update_status($event_name, $order_id, $invoice_id);
-    edd_update_order_status($order_id, 'processing');
-}
-
-
-function process_failed(
-    string $invoice_status,
-    string $invoice_id,
-    int    $order_id,
-    string $event_name
-): void
-{
-    if (!in_array($invoice_status, array('invalid', 'declined'), true)) {
-        return;
-    }
-
-    $note = 'BitPay Invoice ID: <a target = "_blank" href = "' . BitPayEndpoint::get_url(
-            unuspay_get_edd_options()['test_mode'],
-            $invoice_id
-        ) . '">' . $invoice_id . '</a> has become invalid because of network congestion.  Order will automatically update when the status changes.';
-
-    edd_insert_payment_note($order_id, $note);
-    unuspay_bitpay_checkout_transactions->update_status($event_name, $order_id, $invoice_id);
-    edd_update_order_status($order_id, 'failed');
-}
-
-
-function process_abandoned(
-    string $invoice_status,
-    string $invoice_id,
-    int    $order_id,
-    string $event_name
-): void
-{
-    if ('expired' !== $invoice_status) {
-        return;
-    }
-
-    unuspay_bitpay_checkout_transactions->update_status($event_name, $order_id, $invoice_id);
-    edd_update_order_status($order_id, 'abandoned');
-}
-
-
-function process_refunded(
-    string $invoice_id,
-    int    $order_id,
-    string $event_name
-): void
-{
-    $note = 'BitPay Invoice ID: <a target = "_blank" href = "' . BitPayEndpoint::get_url(
-            unuspay_get_edd_options()['test_mode'],
-            $invoice_id
-        ) . '">' . $invoice_id . '</a> has been refunded.';
-
-    edd_insert_payment_note($order_id, $note);
-    unuspay_bitpay_checkout_transactions->update_status($event_name, $order_id, $invoice_id);
-    edd_update_order_status($order_id, 'refunded');
-}
+ 
