@@ -61,12 +61,20 @@ const displayCheckout = async () => {
                 window.location.reload(true);
             },
             track: {
+                id: checkoutId,
+                endpoint: "/wp-json/unuspay/edd/track",
+                poll: {
+                    endpoint: "/wp-json/unuspay/edd/release"
+                }
+
+            }
+            /* track: {
                 method: (payment) => {
                     return new Promise((resolve, reject) => {
                         try {
                             payment.id=checkoutId
                             wp.apiRequest({
-                                path: `/unuspay/edd/checkouts/${checkoutId}/track`,
+                                path: `/unuspay/edd/checkouts/track`,
                                 method: "POST",
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -82,12 +90,17 @@ const displayCheckout = async () => {
                     });
                 },
                 poll: {
-                    method: () => {
+                    method: (payment) => {
                         return new Promise((resolve, reject) => {
+                            payment.id=checkoutId
                             wp.apiRequest({
                                 path: "/unuspay/edd/release",
                                 method: "POST",
-                                data: { checkout_id: checkoutId },
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                data: JSON.stringify(payment),
+                                dataType: 'json',
                             })
                                 .done((responseData) => {
                                     resolve(responseData);
@@ -96,7 +109,7 @@ const displayCheckout = async () => {
                         });
                     },
                 },
-            },
+            }, */
         };
 
         DePayWidgets.Payment(configuration);

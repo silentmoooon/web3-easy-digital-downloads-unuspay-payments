@@ -320,7 +320,8 @@ function getUnusPayOrder($order)
                 'email' => $order->email,
                 'payLinkId' => $payment_key,
                 'currency' => $currency,
-                'amount' => $total
+                'amount' => $total,
+                'commerceType'=>1
             ]),
             'method' => 'POST',
             'data_format' => 'body'
@@ -676,7 +677,7 @@ function init_rest_api()
     );
     register_rest_route(
         'unuspay/edd',
-        '/checkouts/(?P<id>[\w-]+)/track',
+        '/track',
         [
             'methods' => 'POST',
             'callback' => 'track_payment',
@@ -739,13 +740,13 @@ function get_checkout_accept($request)
         $response = rest_ensure_response($accept);
     }
 
-    $response->header('X-Checkout', json_encode([
-        'request_id' => $id,
-        'checkout_id' => $checkout_id,
-        'order_id' => $order_id,
-        'total' => $order->total,
-        'currency' => $order->currency
-    ]));
+    // $response->header('X-Checkout', json_encode([
+    //     'request_id' => $id,
+    //     'checkout_id' => $checkout_id,
+    //     'order_id' => $order_id,
+    //     'total' => $order->total,
+    //     'currency' => $order->currency
+    // ]));
     return $response;
 }
 
@@ -756,7 +757,7 @@ function track_payment($request)
     $body = $request->get_body();
     $jsonBody = json_decode($body,true);
      
-    $id = $jsonBody["id"];
+    $id = $jsonBody["orderId"];
     $accept = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT accept FROM {$wpdb->prefix}edd_unuspay_checkouts WHERE id = %s LIMIT 1",
@@ -771,7 +772,7 @@ function track_payment($request)
     );
     $payment = edd_get_payment($order_id);
 
-    $tracking_uuid = wp_generate_uuid4();
+    $tracking_uuid ;
 
     $total = $payment->total;
 
@@ -786,31 +787,40 @@ function track_payment($request)
 
 
     } else { // PAYMENT TRACKING
+        $tracking_uuid = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT tracking_uuid FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
+                $id
+            )
+        );
+        if (empty($tracking_uuid)) {
+            $tracking_uuid = wp_generate_uuid4();
+            $result = $wpdb->insert("{$wpdb->prefix}edd_unuspay_transactions", array(
+                'order_id' => $order_id,
+                'checkout_id' => $id,
+                'tracking_uuid' => $tracking_uuid,
+                'blockchain' => $jsonBody["blockchain"],
+                'transaction_id' => $transaction_id,
+                'sender_id' => $jsonBody["sender"],
+                'receiver_id' => '',
+                'token_id' => '',
+                'amount' => 0.00,
+                'status' => 'VALIDATING',
 
-        $result = $wpdb->insert("{$wpdb->prefix}edd_unuspay_transactions", array(
-            'order_id' => $order_id,
-            'checkout_id' => $id,
-            'tracking_uuid' => $tracking_uuid,
-            'blockchain' => $jsonBody["blockchain"],
-            'transaction_id' => $transaction_id,
-            'sender_id' => $jsonBody["sender"],
-            'receiver_id' => '',
-            'token_id' => '',
-            'amount' => 0.00,
-            'status' => 'VALIDATING',
-
-            'created_at' => current_time('mysql')
-        ));
-        if (false === $result) {
-            unuspay_edd_log_error('Storing tracking failed!');
-            throw new Exception('Storing tracking failed!!');
+                'created_at' => current_time('mysql')
+            ));
+        
+            if (false === $result) {
+                unuspay_edd_log_error('Storing tracking failed!');
+                throw new Exception('Storing tracking failed!!');
+            }
         }
 
     }
 
     $endpoint = 'http://110.41.71.103:9080/payment/pay';
 
-    $jsonBody["callback"] = get_site_url(null, 'index.php?rest_route=/unuspay/edd/validate');
+    $jsonBody["callback"] = get_site_url(null, 'wp-json/unuspay/edd/validate');
     $jsonBody["trackingId"] = $tracking_uuid;
     $jsonBody["orderId"] = $id;
 
@@ -827,9 +837,10 @@ function track_payment($request)
         )
     );
 
-    $response = rest_ensure_response('{}');
-
-    if (!is_wp_error($post) && (wp_remote_retrieve_response_code($post) == 200 || wp_remote_retrieve_response_code($post) == 201) && wp_remote_retrieve_body($post)->code == 200) {
+    $response = rest_ensure_response(json_decode(wp_remote_retrieve_body($post),true));
+    $response->set_status(200);
+    return $response;
+   /*  if (!is_wp_error($post) && (wp_remote_retrieve_response_code($post) == 200 ) && json_decode(wp_remote_retrieve_body($post))->code == 200) {
         $response->set_status(200);
     } else {
         if (is_wp_error($post)) {
@@ -840,16 +851,17 @@ function track_payment($request)
         $response->set_status(500);
     }
 
-    return $response;
+    return $response; */
 }
 
 function check_release($request)
 {
 
     global $wpdb;
-    $jsonBody = $request->get_json_params();
+    $body = $request->get_body();
+    $jsonBody = json_decode($body,true);
 
-    $checkout_id = $jsonBody->id;
+    $checkout_id =  $jsonBody["orderId"];
     $existing_transaction_status = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT status FROM {$wpdb->prefix}edd_unuspay_transactions WHERE checkout_id = %s ORDER BY created_at DESC LIMIT 1",
@@ -866,16 +878,19 @@ function check_release($request)
         );
 
         $endpoint = 'http://110.41.71.103:9080/payment/release';
-
+        $headers = array(
+            'Content-Type' => 'application/json; charset=utf-8',
+        );
         $response = wp_remote_post($endpoint,
             array(
+                'headers' => $headers,
                 'body' => json_encode($jsonBody),
                 'method' => 'POST',
                 'data_format' => 'body'
             )
         );
-        $rspBody = wp_remote_retrieve_body($response);
-        if (!is_wp_error($response) && (wp_remote_retrieve_response_code($response) == 200 || wp_remote_retrieve_response_code($response) == 201) && $rspBody->code == 200) {
+        $rspBody = json_decode(wp_remote_retrieve_body($response));
+        if (!is_wp_error($response) && (wp_remote_retrieve_response_code($response) == 200) && $rspBody->code == 200) {
 
 
             $order_id = $wpdb->get_var(
@@ -897,7 +912,7 @@ function check_release($request)
                     $tracking_uuid
                 )
             );
-            $order = wc_get_order($order_id);
+            $order = edd_get_payment($order_id);
             //$responseBody = json_decode( $response['body'] );
             $status = $rspBody->data->status;
             $transaction = $rspBody->data->transaction;
@@ -913,8 +928,7 @@ function check_release($request)
             }
 
             if (
-                'success' === $status &&
-                $rspBody->data->blockchain === $expected_blockchain
+                'success' === $status
             ) {
                 $wpdb->query(
                     $wpdb->prepare(
@@ -954,7 +968,7 @@ function check_release($request)
     );
 
     if (empty($existing_transaction_status) || 'VALIDATING' === $existing_transaction_status) {
-        $response = new WP_REST_Response();
+        $response = rest_ensure_response("{}");
         $response->set_status(200);
         return $response;
     }
@@ -965,7 +979,7 @@ function check_release($request)
             $checkout_id
         )
     );
-    $order = wc_get_order($order_id);
+    $order = edd_get_payment($order_id);
 
 
     if ('SUCCESS' === $existing_transaction_status) {
@@ -986,7 +1000,7 @@ function check_release($request)
             )
         );
         $response = rest_ensure_response([
-            'code' => 200,
+            'code' => 500,
             'data' => [
                 'status' => 'failed'
             ]
@@ -1001,9 +1015,10 @@ function process_notify(WP_REST_Request $request)
 {
     global $wpdb;
     $response = new WP_REST_Response();
+    $body = $request->get_body();
+    $jsonBody = json_decode($body,true);
 
-
-    $tracking_uuid = $request->get_param('trackingId');
+    $tracking_uuid = $jsonBody['trackingId'];
     $existing_transaction_id = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
@@ -1037,8 +1052,8 @@ function process_notify(WP_REST_Request $request)
         )
     );
 
-    $status = $request->get_param('status');
-    $transaction = $request->get_param('transaction');
+    $status = $jsonBody['status'];
+    $transaction = $jsonBody['transaction'];
 
     if ($expected_transaction != $transaction) {
         $wpdb->query(
@@ -1051,8 +1066,7 @@ function process_notify(WP_REST_Request $request)
     }
 
     if (
-        'success' === $status &&
-        $request->get_param('blockchain') === $expected_blockchain
+        'success' === $status
     ) {
         $wpdb->query(
             $wpdb->prepare(
@@ -1065,7 +1079,7 @@ function process_notify(WP_REST_Request $request)
         );
         edd_update_order_status($order_id, 'complete');
     } else {
-        $failed_reason = $request->get_param('failed_reason');
+        $failed_reason = $jsonBody['failed_reason'];
         if (empty($failed_reason)) {
             $failed_reason = 'MISMATCH';
         }
