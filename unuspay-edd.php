@@ -258,6 +258,7 @@ function unuspay_edd_process_payment($purchase_data)
             header($redirect_url);
             die();
             return rest_ensure_response('{}');
+            
             //edd_send_back_to_checkout('?unuspay-checkout=' . $checkout_id . '@' . time());
             /* return( [
                  'result'         => 'success',
@@ -321,14 +322,14 @@ function getUnusPayOrder($order)
                 'payLinkId' => $payment_key,
                 'currency' => $currency,
                 'amount' => $total,
-                'commerceType'=>1
+                'commerceType'=>2
             ]),
             'method' => 'POST',
             'data_format' => 'body'
         )
     );
     $post_response_code = $post_response['response']['code'];
-    $post_response_successful = !is_wp_error($post_response_code) && $post_response_code >= 200 && $post_response_code < 300;
+    $post_response_successful = !is_wp_error($post_response_code) && $post_response_code == 200 ;
     if (!$post_response_successful) {
         unuspay_edd_log_error('ecommerce order failed!' . $post_response->get_error_message());
         throw new Exception('request failed!');
@@ -900,12 +901,7 @@ function check_release($request)
                 )
             );
 
-            $expected_blockchain = $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT blockchain FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
-                    $tracking_uuid
-                )
-            );
+            
             $expected_transaction = $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT transaction_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
@@ -1039,12 +1035,6 @@ function process_notify(WP_REST_Request $request)
         )
     );
 
-    $expected_blockchain = $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT blockchain FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",
-            $tracking_uuid
-        )
-    );
     $expected_transaction = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT transaction_id FROM {$wpdb->prefix}edd_unuspay_transactions WHERE tracking_uuid = %s ORDER BY id DESC LIMIT 1",

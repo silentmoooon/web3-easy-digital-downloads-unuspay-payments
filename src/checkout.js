@@ -15,8 +15,9 @@ jQuery(function ($) {
 
     $("form.edd-blocks-form__purchase").on("submit", async () => {
         var values = $("form.edd-blocks-form__purchase").serialize();
-        console.log("values",values);
+        
         if (values.match("edd-gateway=edd_unuspay_gateway")) {
+            console.log("values",values);
             let { unmount } = await DePayWidgets.Loading({
                 text: "Loading payment data...",
             });
