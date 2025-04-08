@@ -18,7 +18,7 @@ jQuery(function ($) {
         
         if (values.match("edd-gateway=edd_unuspay_gateway")) {
             console.log("values",values);
-            let { unmount } = await DePayWidgets.Loading({
+            let { unmount } = await UnusPayWidgets.Loading({
                 text: "Loading payment data...",
             });
             setTimeout(unmount, 10000);
@@ -113,7 +113,7 @@ const displayCheckout = async () => {
             }, */
         };
 
-        DePayWidgets.Payment(configuration);
+        UnusPayWidgets.Payment(configuration);
     }
 };
 

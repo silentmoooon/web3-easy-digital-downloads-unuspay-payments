@@ -1096,12 +1096,12 @@ function edd_custom_scripts()
 {
     // 仅在 EDD 结账页面加载
     //if (edd_is_checkout()) {
-    wp_register_script( 'UNUSPAY_WC_WIDGETS',plugin_dir_url(__FILE__) .'dist/widgets.bundle.js', array(), '1.0', true);
-    wp_enqueue_script( 'UNUSPAY_WC_WIDGETS' );
+    wp_register_script( 'UNUSPAY_EDD_WIDGETS',plugin_dir_url(__FILE__) .'dist/widgets.bundle.js', array(), '1.0', true);
+    wp_enqueue_script( 'UNUSPAY_EDD_WIDGETS' );
 
         // 注册脚本（依赖 jQuery）
         wp_register_script(
-            'edd-unuspay-check',
+            'UNUSPAY_EDD_CHECKOUT',
             plugin_dir_url(__FILE__) . 'dist/checkout.js', // 脚本路径
             array('wp-api-request', 'jquery'), // 依赖
             '1.0', // 版本号
@@ -1110,7 +1110,7 @@ function edd_custom_scripts()
 
 
         // 加载脚本
-        wp_enqueue_script('edd-unuspay-check');
+        wp_enqueue_script('UNUSPAY_EDD_CHECKOUT');
     //}
 }
 
