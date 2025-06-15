@@ -311,7 +311,7 @@ function getUnusPayOrder($order)
         throw new Exception('No payment key found!');
     }
 
-    $post_response = wp_remote_post("http://110.41.71.103:9080/payment/ecommerce/order",
+    $post_response = wp_remote_post("https://app.unuspay.com/api/payment/ecommerce/order",
         array(
             'headers' => $headers,
             'body' => json_encode([
@@ -819,7 +819,7 @@ function track_payment($request)
 
     }
 
-    $endpoint = 'http://110.41.71.103:9080/payment/pay';
+    $endpoint = 'https://app.unuspay.com/api/payment/pay';
 
     $jsonBody["callback"] = get_site_url(null, 'wp-json/unuspay/edd/validate');
     $jsonBody["trackingId"] = $tracking_uuid;
@@ -878,7 +878,7 @@ function check_release($request)
             )
         );
 
-        $endpoint = 'http://110.41.71.103:9080/payment/release';
+        $endpoint = 'https://app.unuspay.com/api/payment/release';
         $headers = array(
             'Content-Type' => 'application/json; charset=utf-8',
         );

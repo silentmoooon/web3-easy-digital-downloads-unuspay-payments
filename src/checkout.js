@@ -68,50 +68,23 @@ const displayCheckout = async () => {
                     endpoint: "/wp-json/unuspay/edd/release"
                 }
 
-            }
-            /* track: {
-                method: (payment) => {
-                    return new Promise((resolve, reject) => {
-                        try {
-                            payment.id=checkoutId
-                            wp.apiRequest({
-                                path: `/unuspay/edd/checkouts/track`,
-                                method: "POST",
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                data: JSON.stringify(payment),
-                                dataType: 'json'
-                            })
-                                .done(() => resolve({ status: 200 }))
-                                .fail((request, status) => reject(status));
-                        } catch {
-                            reject();
-                        }
-                    });
-                },
-                poll: {
-                    method: (payment) => {
-                        return new Promise((resolve, reject) => {
-                            payment.id=checkoutId
-                            wp.apiRequest({
-                                path: "/unuspay/edd/release",
-                                method: "POST",
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                data: JSON.stringify(payment),
-                                dataType: 'json',
-                            })
-                                .done((responseData) => {
-                                    resolve(responseData);
-                                })
-                                .fail(resolve);
-                        });
-                    },
-                },
-            }, */
+            },
+             style:{colors:{}},
+             
         };
+
+        if(response.colorBody && response.colorBody.colorSwitch){
+             
+            if(response.colorBody.buttonColor&&response.colorBody.buttonColor!=""){
+                configuration.style.colors.primary=response.colorBody.buttonColor;
+            }
+            if(response.colorBody.buttonTextColor&&response.colorBody.buttonTextColor!=""){
+                configuration.style.colors.buttonText=response.colorBody.buttonTextColor;
+            }
+             if(response.colorBody.buttonFont&&response.colorBody.buttonFont!=""){
+                configuration.style.fontFamily=response.colorBody.buttonFont;
+            }
+        }
 
         UnusPayWidgets.Payment(configuration);
     }
