@@ -207,19 +207,12 @@ function unuspay_edd_admin_notice_for_unuspay_active()
     </div>
     <?php
 }
-
-function unuspay_edd_log_error($message)
-{
-    error_log(date('Y-m-d H:i:s') . ' ERROR: ' . $message . "\n", 3, ABSPATH . "/wp-content/plugins/web3-easy-digital-downloads-unuspay-payments/logs/error.log");
-    //error_log(date('Y-m-d H:i:s') . ' ERROR: ' . $message . "\n");
-}
-
+ 
 function unuspay_edd_process_payment($purchase_data)
 {
     try {
         global $wpdb;
         if (!wp_verify_nonce($purchase_data['gateway_nonce'], 'edd-gateway')) {
-            unuspay_edd_log_error("[unuspay_edd_process_payment] gateway_nonce is invalid: " . $purchase_data['gateway_nonce']);
             wp_die(__('Nonce verification has failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
         }
 
@@ -270,7 +263,6 @@ function unuspay_edd_process_payment($purchase_data)
              ] );*/
         }
     } catch (Exception $e) {
-        unuspay_edd_log_error('Storing checkout failed: ' . $e->getMessage());
         wp_die(__('Storing checkout failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
 
         // edd_send_back_to_checkout();
@@ -310,7 +302,6 @@ function getUnusPayOrder($order)
 
     $payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
     if (empty($payment_key)) {
-        unuspay_edd_log_error('No payment key found!');
         throw new Exception('No payment key found!');
     }
 
@@ -334,12 +325,10 @@ function getUnusPayOrder($order)
     $post_response_code = $post_response['response']['code'];
     $post_response_successful = !is_wp_error($post_response_code) && $post_response_code == 200 ;
     if (!$post_response_successful) {
-        unuspay_edd_log_error('ecommerce order failed!' . $post_response->get_error_message());
         throw new Exception('request failed!');
     }
     $post_response_json = json_decode($post_response['body']);
     if ($post_response_json->code != 200) {
-        unuspay_edd_log_error('ecommerce order failed!' . $post_response->get_error_message());
         throw new Exception('request failed!');
     }
 
@@ -373,18 +362,15 @@ function unuspay_edd_cryptocoin_payment($payment)
             $unuspay_edd_payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
 
             if (!$payment || !$payment->ID) {
-                unuspay_edd_log_error("[cryptocoin_payment] Unable to get payment object. Payment data: " . json_encode($payment));
                 echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
                 echo "<p class='edd-alert edd-alert-error'>" . esc_html(__('Unable to get payment object. You can contact the email(contact@unuspay.com) to get more help.', 'unuspay-edd')) . '</p>';
                 return false;
             } else {
                 if ($amount < 0) {
-                    unuspay_edd_log_error("[cryptocoin_payment] Order amount < 0, amount: " . $amount);
                     echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
                     echo "<p class='edd-alert edd-alert-error'>" . esc_html(__("The order amount must be greater than or equal to 0. Please contact us(contact@unuspay.com) if you need assistance.", 'unuspay-edd') . esc_html(" ") . esc_html($currency)) . "</p>";
                     return false;
                 } elseif (!$unuspay_edd_payment_key || $unuspay_edd_payment_key == "") {
-                    unuspay_edd_log_error("[cryptocoin_payment]  payment_key is invalid, payment_key: " . $unuspay_edd_payment_key);
                     echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
                     echo "<p class='edd-alert edd-alert-error'>" . esc_html(__("The merchant did not set the plugin configuration. Please contact merchant or us(contact@unuspay.com) if you need assistance.", 'unuspay-edd')) . "</p>";
                     return false;
@@ -395,7 +381,6 @@ function unuspay_edd_cryptocoin_payment($payment)
             }
         }
     } catch (Exception $e) {
-        unuspay_edd_log_error('Storing checkout failed: ' . $e->getMessage());
     }
 
     return false;
@@ -785,7 +770,6 @@ function track_payment($request)
     if (empty($transaction_id)) { // PAYMENT TRACE
 
         if ($payment->status=='complete') {
-            unuspay_edd_log_error('Order has been completed already!');
             throw new Exception('Order has been completed already!');
         }
 
@@ -815,7 +799,6 @@ function track_payment($request)
             ));
         
             if (false === $result) {
-                unuspay_edd_log_error('Storing tracking failed!');
                 throw new Exception('Storing tracking failed!!');
             }
         }
