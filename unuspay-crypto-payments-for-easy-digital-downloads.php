@@ -1,18 +1,21 @@
 <?php
 
 /**
- * Plugin Name: Unuspay Crypto payment for Easy Digital Downloads
- * Plugin URI: https://unuspay.com
- * Description: Pay with Crypto For Easy Digital Downloads, Let your customer pay with ETH, USDC, USDT, DAI, lowest fees, non-custodail & no fraud/chargeback, 50+ cryptos. Invoice, payment link, payment button.
- * Version: 0.0.1
- * Author: Unuspay
+ * Plugin Name: unuspay crypto payments for edd
+ * Plugin URI: https://unuspay.com/e-commerce
+ * Description: unuspay Payments directly into your own wallet.
+ * Author: unuspay
  * Author URI: https://unuspay.com
+ * Text Domain: unuspay-crypto-payments-for-easy-digital-downloads
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: Expand customer base with crypto payment, non-custodail & no fraud/chargeback, low fees, 50+ cryptos. Invoice, payment link, payment button.
- * Tags: Crypto, cryptocurrency, crypto payment, erc20, cryptocurrency, e-commerce, bitcoin, bitcoin lighting network, ethereum, crypto pay, smooth withdrawals, cryptocurrency payments, low commission, pay with meta mask, payment button, invoice, crypto woocommerce，bitcoin woocommerce，ethereum，pay crypto，virtual currency，bitcoin wordpress plugin，free crypto plugin
- * Requires at least: 5.8
+ * Domain Path: /languages
+ * Requires Plugins: Easy Digital Downloads
+ * WC requires at least: 6.2
+ * WC tested up to: 9.8.5
+ * Requires at least: 6.0
  * Requires PHP: 7.2
+ * Version: 1.0.0
  */
 
 // Exit if accessed directly
@@ -295,7 +298,7 @@ function unuspay_edd_process_payment($purchase_data)
 
 function getUnusPayOrder($order)
 {
-    $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
+    $lang = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_ACCEPT_LANGUAGE'])) : '';
     $headers = array(
         'accept-language' => $lang,
         'Content-Type' => 'application/json; charset=utf-8',
@@ -311,7 +314,7 @@ function getUnusPayOrder($order)
         throw new Exception('No payment key found!');
     }
 
-    $post_response = wp_remote_post("https://app.unuspay.com/api/payment/ecommerce/order",
+    $post_response = wp_remote_post("https://dapp.unuspay.com/api/payment/ecommerce/order",
         array(
             'headers' => $headers,
             'body' => json_encode([
@@ -819,7 +822,7 @@ function track_payment($request)
 
     }
 
-    $endpoint = 'https://app.unuspay.com/api/payment/pay';
+    $endpoint = 'https://dapp.unuspay.com/api/payment/pay';
 
     $jsonBody["callback"] = get_site_url(null, 'wp-json/unuspay/edd/validate');
     $jsonBody["trackingId"] = $tracking_uuid;
@@ -878,7 +881,7 @@ function check_release($request)
             )
         );
 
-        $endpoint = 'https://app.unuspay.com/api/payment/release';
+        $endpoint = 'https://dapp.unuspay.com/api/payment/release';
         $headers = array(
             'Content-Type' => 'application/json; charset=utf-8',
         );
