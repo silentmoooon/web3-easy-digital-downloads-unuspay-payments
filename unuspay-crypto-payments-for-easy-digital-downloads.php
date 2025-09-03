@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: unuspay crypto payments for edd
+ * Plugin Name: unuspay crypto payments for easy digital downloads
  * Plugin URI: https://unuspay.com/e-commerce
  * Description: unuspay Payments directly into your own wallet.
  * Author: unuspay
@@ -100,29 +100,9 @@ function unuspay_edd_add_gateway_settings($gateway_settings)
 {
     global $unuspay_edd_title, $unuspay_edd_payment_key;
 
-    $unuspay_intro = '<p style="color:blue"><b>Remember to select Unuspay as one of your active payment gateway.</b></p>';
-    $unuspay_intro .= '<p style="margin-top: 10px"><b>UNUSPAY official <a href="https://unuspay.com/" target="_blank">website.</a></b></p>';
-    $unuspay_intro .= '<p style="margin-top: 10px;">Unuspay has no setup fees, no subscription fees, no hidden costs, no chargebacks. Pure non-custodial, no third party charge, all transactions are peer-to-peer. Merchants send crypto payment link directly to customers with no middleman, no code required.</p>';
-    $unuspay_intro .= '<p style="margin-top: 20px;"><b>PARTNER INCENTIVE REWARD PROGRAM!</b></p>';
-    $unuspay_intro .= '<p style="margin-top: 10px;">Join hundreds of popular WordPress, WooCommerce sellers benefiting from using Unuspay as their global growth partner. Start accepting Crypto in 1 minute and see the immediate impact of our managed platform.</p>';
-    $unuspay_intro .= '<p style="margin-top: 20px;"><b>Learn more about <a href="https://unuspay.com/partner/" target="_blank">Partner</a> Program!</b></p>';
-    $unuspay_intro .= '<p style="margin-top: 10px;">Register a partner account and get a percentage of their transaction-based profit. dashboard.</p>';
-    $unuspay_intro .= '<p>Easy sign-up referral link to get merchants. Lifetime reward. Manage your merchants in the partner dashboard. The more merchants you bring, the more reward you get!</p>';
-    $unuspay_intro .= '<p style="margin-top: 20px;"><a href="https://dashboard.unuspay.com/" target="_blank">Get Started</a></p>';
-
+ 
     $unuspay_settings = array(
-        UNUSPAY_GATEWAY_NAME => array(
-            'id' => UNUSPAY_GATEWAY_NAME,
-            'name' => '<a id="UNUSPAY"></a><strong>' . __('Unuspay', 'easy-digital-downloads') . '</strong>',
-            'desc' => __('UNUSPAY official website.', 'easy-digital-downloads'),
-            'type' => 'header',
-        ),
-        UNUSPAY_GATEWAY_NAME . '_intro' => array(
-            'id' => UNUSPAY_GATEWAY_NAME . '_intro',
-            'name' => "<a target='_blank' href='https://unuspay.com/'><img border='0' style='width: 190px;height: 60px;'src='" . plugins_url('/images/unuspay.png', __FILE__) . "'></a>",
-            'desc' => $unuspay_intro,
-            'type' => 'descriptive_text',
-        ),
+   
         UNUSPAY_GATEWAY_NAME . '_title' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_title',
             'name' => __('Title', 'easy-digital-downloads'),
@@ -166,48 +146,9 @@ function unuspay_edd_init_settings()
 
     $unuspay_edd_payment_key = trim($unuspay_edd_payment_key);
     edd_update_option(UNUSPAY_GATEWAY_NAME . '_payment_key', $unuspay_edd_payment_key);
-
-    /*if (isset($_GET["page"]) && isset($_GET["tab"]) && $_GET["page"] == "edd-settings" && $_GET["tab"] == "gateways") {
-        try {
-            unuspay_edd_verify_unuspay_key($unuspay_edd_payment_key);
-        } catch (Exception $e) {
-            unuspay_edd_log_error("[unuspay_edd_init_settings] request to unuspay key verification failed, error:" . json_encode($e));
-        }
-    }*/
-}
-
-/*function unuspay_edd_verify_unuspay_key($payment_key)
-{
-    $key_result = wp_remote_get('https://dashboard.unuspay.com/api/plugin/key/verify?id=' . $merchant_id . '&key=' . $merchant_key . '&name=EASYDIGITALDOWNLOADS&url=' . parse_url(site_url(), PHP_URL_HOST));
-    $response_data = json_decode($key_result['body'], true);
-
-    if (!($response_data['data'])) {
-        add_action('admin_notices', 'unuspay_edd_admin_notice_for_key');
-        add_action('admin_notices', 'unuspay_edd_admin_notice_for_unuspay_active');
-    }
-}*/
-
-function unuspay_edd_admin_notice_for_key()
-{
-    ?>
-    <div class="notice notice-error is-dismissible">
-        <p><?php _e('[Unuspay EDD] The Unuspay MerchantID and PublicKey you entered is incorrect. Please check the video link for more information.', 'easy-digital-downloads'); ?>
-            (<a href="https://youtu.be/zLLLjBnuc3g" target="blank">https://youtu.be/zLLLjBnuc3g</a>)</p>
-    </div>
-    <?php
-}
-
-
-function unuspay_edd_admin_notice_for_unuspay_active()
-{
-    ?>
-    <div class="notice notice-info is-dismissible"
-         style="color: #fff; background-image: linear-gradient(to right , #529df8, #541ccc);">
-        <p><?php _e('[Unuspay EDD] Remember to select Unuspay as one of your active payment gateway.', 'easy-digital-downloads'); ?></p>
-    </div>
-    <?php
-}
  
+}
+
 function unuspay_edd_process_payment($purchase_data)
 {
     try {
@@ -263,6 +204,7 @@ function unuspay_edd_process_payment($purchase_data)
              ] );*/
         }
     } catch (Exception $e) {
+         error_log("failed, error:" . $e->getMessage());
         wp_die(__('Storing checkout failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
 
         // edd_send_back_to_checkout();
@@ -475,20 +417,6 @@ function unuspay_edd_http_post($url, $data, $API_KEY)
 
 add_action('edd_order_receipt_before_table', 'unuspay_edd_cryptocoin_payment');
 
-function unuspay_edd_callback_parse_request()
-{
-    ob_start();
-
-    include_once(plugin_dir_path(__FILE__) . "includes/unuspay.edd.callback.php");
-
-    if (ob_get_level() > 0) {
-        ob_flush();
-    }
-
-    return true;
-}
-
-add_action('parse_request', 'unuspay_edd_callback_parse_request');
 
 function unuspay_edd_disable_checkout_userInfo_details()
 {
@@ -509,84 +437,6 @@ function unuspay_edd_payment_icon($icons = array())
 
 add_filter('edd_accepted_payment_icons', 'unuspay_edd_payment_icon');
 
-if (!function_exists('unuspay_edd_render_usage_notice')) {
-    function unuspay_edd_render_usage_notice()
-    {
-        global $pagenow;
-        $admin_pages = ['index.php', 'plugins.php'];
-        if (in_array($pagenow, $admin_pages)) {
-            ?>
-            <div class="ap-connection-banner unuspay-usage-notice">
-
-                <div class="ap-connection-banner__container-top-text">
-                    <span class="notice-dismiss unuspay-usage-notice__dismiss" title="Dismiss this notice"></span>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <rect x="0" fill="none" width="24" height="24"/>
-                        <g>
-                            <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 15h-2v-2h2v2zm0-4h-2l-.5-6h3l-.5 6z"/>
-                        </g>
-                    </svg>
-                    <span>You're almost done. Setup Unuspay to enable Crypto Payment for you Easy Digital Downloads site.</span>
-                </div>
-                <div class="ap-connection-banner__inner">
-                    <div class="ap-connection-banner__content">
-                        <div class="ap-connection-banner__logo">
-                            <img src="<?php echo esc_url(plugins_url('assets/images/logo_aurpay.svg', __FILE__)); ?>"
-                                 alt="logo">
-                        </div>
-                        <h2 class="ap-connection-banner__title">Empower Your Business with Unuspay Crypto Payment</h2>
-                        <div class="ap-connection-banner__columns">
-                            <div class="ap-connection-banner__text">⭐ Get listed on our online directory to attract
-                                <span style="color: #007AFF">300 millions</span> of crypto owners.
-                            </div>
-                            <div class="ap-connection-banner__text">⭐ Earn up to <span style="color: #007AFF">150,000 satoshi</span>
-                                rewards for merchants who finished all settings and more.
-                            </div>
-                        </div>
-                        <div class="ap-connection-banner__rows">
-                            <div class="ap-connection-banner__text ap-connection-banner__step">By setting up Unuspay,
-                                get a merchant account and save your "<span style="color: #007AFF">Merchant ID</span>" &
-                                "<span style="color: #007AFF">Public Key</span>" in Easy Digital Downloads Payment
-                                settings.
-                            </div>
-                            <a id="ap-connect-button--alt" rel="external" target="_blank"
-                               href="https://dashboard.unuspay.com/#/login?cur_url=/integration&platform=EASYDIGITALDOWNLOADS"
-                               class="ap-banner-cta-button ap_step_edd_1">Setup Unuspay</a>
-                        </div>
-                        <div class="ap-connection-banner__rows" style="display: none;">
-                            <div class="ap-connection-banner__text ap-connection-banner__step">Save your PublicKey in
-                                EasyDigitalDownloads Payment settings.
-                            </div>
-                            <a id="ap-connect-button--alt" target="_self"
-                               href="<?php echo admin_url('edit.php?post_type=download&page=edd-settings&tab=gateways&section=edd_unuspay_gateway') ?>"
-                               class="ap-banner-cta-button ap_step_edd_2">Settings</a>
-                        </div>
-                    </div>
-                    <div class="ap-connection-banner__image-container">
-                        <picture>
-                            <source type="image/webp"
-                                    srcset="<?php echo esc_url(plugins_url('assets/images/img_aurpay.webp', __FILE__)); ?> 1x, <?php echo esc_url(plugins_url('assets/images/img_aurpay-2x.webp', __FILE__)); ?> 2x">
-                            <img class="ap-connection-banner__image"
-                                 srcset="<?php echo esc_url(plugins_url('assets/images/img_aurpay.png', __FILE__)); ?> 1x, <?php echo esc_url(plugins_url('assets/images/img_aurpay-2x.png', __FILE__)); ?> 2x"
-                                 src="<?php echo esc_url(plugins_url('assets/images/img_aurpay.png', __FILE__)); ?>"
-                                 alt="">
-                        </picture>
-                        <img class="ap-connection-banner__image-background"
-                             src="<?php echo esc_url(plugins_url('assets/images/background.svg', __FILE__)); ?>"/>
-                    </div>
-                </div>
-            </div>
-
-            <?php
-
-            wp_enqueue_script(
-                'unuspay-notice-banner-js',
-                plugin_dir_url(__FILE__) . 'assets/js/unuspay-usage-notice.js',
-                array('jquery')
-            );
-        }
-    }
-}
 
 function unuspay_edd_plugins_loaded()
 {
@@ -604,50 +454,10 @@ function unuspay_edd_plugins_loaded()
     }
 }
 
+
+
 add_action('plugins_loaded', 'unuspay_edd_plugins_loaded');
 
-function unuspay_edd_action_links($links, $file)
-{
-    static $this_plugin;
-
-    if (!class_exists('Easy_Digital_Downloads')) return $links;
-
-    if (false === isset($this_plugin) || true === empty($this_plugin)) {
-        $this_plugin = plugin_basename(__FILE__);
-    }
-
-    if ($file == $this_plugin) {
-        $unuspay_link = '<a href="https://dashboard.unuspay.com/#/login?cur_url=/integration&platform=EASYDIGITALDOWNLOADS" target="_blank" style="color: #39b54a; font-weight: bold;">' . __('Get Unuspay', 'unuspay') . '</a>';
-        $settings_link = '<a href="' . admin_url('edit.php?post_type=download&page=edd-settings&tab=gateways#unuspay') . '">' . __('Settings', 'unuspay-edd') . '</a>';
-        array_unshift($links, $unuspay_link, $settings_link);
-    }
-
-    return $links;
-}
-
-add_filter('plugin_action_links', 'unuspay_edd_action_links', 10, 2);
-
-function unuspay_edd_plugin_row_meta($plugin_meta, $plugin_file)
-{
-    static $this_plugin;
-
-    if (isset($this_plugin) === false || empty($this_plugin) === true) {
-        $this_plugin = plugin_basename(__FILE__);
-    }
-
-    if ($this_plugin === $plugin_file) {
-        $row_meta = [
-            'dome' => '<a style="color: #39b54a;" href="https://example-wp.unuspay.com/downloads/" aria-label="' . esc_attr(__('View Unuspay Demo', 'unuspay-wc')) . '" target="_blank">' . __('Demo', 'unuspay-wc') . '</a>',
-            'video' => '<a style="color: #39b54a;" href="https://youtu.be/zLLLjBnuc3g" aria-label="' . esc_attr(__('View Unuspay Video Tutorials', 'unuspay-wc')) . '" target="_blank">' . __('Video Tutorials', 'unuspay-wc') . '</a>',
-        ];
-
-        $plugin_meta = array_merge($plugin_meta, $row_meta);
-    }
-
-    return $plugin_meta;
-}
-
-add_filter('plugin_row_meta', 'unuspay_edd_plugin_row_meta', 10, 2);
 
 add_action(
     'rest_api_init', 'init_rest_api'
@@ -1082,13 +892,13 @@ function edd_custom_scripts()
 {
     // 仅在 EDD 结账页面加载
     //if (edd_is_checkout()) {
-    wp_register_script( 'UNUSPAY_EDD_WIDGETS',plugin_dir_url(__FILE__) .'dist/widgets.bundle.js', array(), '1.0', true);
+    wp_register_script( 'UNUSPAY_EDD_WIDGETS',plugin_dir_url(__FILE__) .'assets/js/widgets.bundle.js', array(), '1.0', true);
     wp_enqueue_script( 'UNUSPAY_EDD_WIDGETS' );
 
         // 注册脚本（依赖 jQuery）
         wp_register_script(
             'UNUSPAY_EDD_CHECKOUT',
-            plugin_dir_url(__FILE__) . 'dist/checkout.js', // 脚本路径
+            plugin_dir_url(__FILE__) . 'assets/js/checkout.js', // 脚本路径
             array('wp-api-request', 'jquery'), // 依赖
             '1.0', // 版本号
             true // 在页脚加载
