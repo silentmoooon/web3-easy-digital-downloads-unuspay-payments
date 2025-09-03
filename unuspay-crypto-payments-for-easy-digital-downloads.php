@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: unuspay crypto payments for easy digital downloads
+ * Plugin Name: UnusPay Crypto Payments For Easy Digital Downloads
  * Plugin URI: https://unuspay.com/e-commerce
  * Description: unuspay Payments directly into your own wallet.
  * Author: unuspay
@@ -9,10 +9,7 @@
  * Text Domain: unuspay-crypto-payments-for-easy-digital-downloads
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Domain Path: /languages
- * Requires Plugins: Easy Digital Downloads
- * WC requires at least: 6.2
- * WC tested up to: 9.8.5
+ * Requires Plugins: easy-digital-downloads
  * Requires at least: 6.0
  * Requires PHP: 7.2
  * Version: 1.0.0
@@ -31,7 +28,7 @@ function unuspay_edd_register_gateway($gateways)
 {
     $gateways[UNUSPAY_GATEWAY_NAME] = array(
         'admin_label' => 'Unuspay Gateway',
-        'checkout_label' => __('Unuspay Crypto Payment Gateway', 'easy-digital-downloads'),
+        'checkout_label' => esc_html__('Unuspay Crypto Payment Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads'),
     );
     return $gateways;
 }
@@ -85,7 +82,7 @@ add_filter('edd_payment_gateways', 'unuspay_edd_register_gateway');
 // Register a subsection for Unuspay Gateway in gateway options tab
 function unuspay_edd_register_gateway_section($gateway_sections)
 {
-    $gateway_sections[UNUSPAY_GATEWAY_NAME] = __('Unuspay Gateway', 'easy-digital-downloads');
+    $gateway_sections[UNUSPAY_GATEWAY_NAME] = esc_html__('Unuspay Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads');
     return $gateway_sections;
 }
 
@@ -105,16 +102,16 @@ function unuspay_edd_add_gateway_settings($gateway_settings)
    
         UNUSPAY_GATEWAY_NAME . '_title' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_title',
-            'name' => __('Title', 'easy-digital-downloads'),
-            'desc' => __('Payment method title that the customer will see on your checkout page', 'easy-digital-downloads'),
+            'name' => esc_html__('Title', 'unuspay-crypto-payments-for-easy-digital-downloads'),
+            'desc' => esc_html__('Payment method title that the customer will see on your checkout page', 'unuspay-crypto-payments-for-easy-digital-downloads'),
             'type' => 'text',
             'size' => 'regular',
             'std' => $unuspay_edd_title
         ),
         UNUSPAY_GATEWAY_NAME . '_payment_key' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_payment_key',
-            'name' => __('PaymentKey', 'easy-digital-downloads'),
-            'desc' => __('Unuspay Payment Key', 'easy-digital-downloads'),
+            'name' => esc_html__('PaymentKey', 'unuspay-crypto-payments-for-easy-digital-downloads'),
+            'desc' => esc_html__('Unuspay Payment Key', 'unuspay-crypto-payments-for-easy-digital-downloads'),
             'type' => 'text',
             'size' => 'regular',
             'std' => $unuspay_edd_payment_key
@@ -140,7 +137,7 @@ function unuspay_edd_init_settings()
 
 
     if (!$unuspay_edd_title) {
-        $unuspay_edd_title = __('Unuspay Crypto Payment Gateway', 'easy-digital-downloads');
+        $unuspay_edd_title = esc_html__('Unuspay Crypto Payment Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads');
         edd_update_option(UNUSPAY_GATEWAY_NAME . '_title', $unuspay_edd_title);
     }
 
@@ -154,7 +151,7 @@ function unuspay_edd_process_payment($purchase_data)
     try {
         global $wpdb;
         if (!wp_verify_nonce($purchase_data['gateway_nonce'], 'edd-gateway')) {
-            wp_die(__('Nonce verification has failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
+            wp_die(esc_html__('Nonce verification has failed', 'unuspay-crypto-payments-for-easy-digital-downloads'), esc_html__('Error', 'unuspay-crypto-payments-for-easy-digital-downloads'), array('response' => 403));
         }
 
         $payment_data = array(
@@ -175,11 +172,7 @@ function unuspay_edd_process_payment($purchase_data)
            
             $payment = edd_get_payment($payment_id);
             $accept = getUnusPayOrder($payment);
-            /*$accept= array(
-                'name' => 'John',
-                'age' => 30,
-                'city' => 'New York'
-            );*/
+            
             $result = $wpdb->insert("{$wpdb->prefix}edd_unuspay_checkouts", array(
                 'id' => $accept->id,
                 'order_id' => $payment_id,
@@ -195,39 +188,14 @@ function unuspay_edd_process_payment($purchase_data)
             header($redirect_url);
             die();
             return rest_ensure_response('{}');
-            
-            //edd_send_back_to_checkout('?unuspay-checkout=' . $checkout_id . '@' . time());
-            /* return( [
-                 'result'         => 'success',
-                 'redirect'       => 'unuspay-checkout-' . $checkout_id . '@' . time()
-                 // 'redirect'       => get_option('woocommerce_enable_signup_and_login_from_checkout') === 'yes' ? $order->get_checkout_payment_url() . '#wc-depay-checkout-' . $checkout_id . '@' . time() : '#wc-depay-checkout-' . $checkout_id . '@' . time()
-             ] );*/
+           
         }
     } catch (Exception $e) {
-         error_log("failed, error:" . $e->getMessage());
-        wp_die(__('Storing checkout failed', 'unuspay-edd'), __('Error', 'unuspay-edd'), array('response' => 403));
+        wp_die(esc_html__('Storing checkout failed', 'unuspay-crypto-payments-for-easy-digital-downloads'), esc_html__('Error', 'unuspay-crypto-payments-for-easy-digital-downloads'), array('response' => 403));
 
-        // edd_send_back_to_checkout();
-        //edd_send_back_to_checkout('?payment-mode=' . $purchase_data['post_data']['edd-gateway']);
-
+      
     }
-    /*if ($payment) {
-        $userID = edd_get_payment_user_id($payment);
-
-        if ($userID == "-1") {
-            $userID = 0;
-        }
-
-        $user = (!$userID) ? __('Guest', 'unuspay-edd') : "<a href='" . admin_url("user-edit.php?user_id=" . $userID) . "'>user" . $userID . "</a>";
-        edd_insert_payment_note($payment, sprintf(__('Order Created by %s. <br/> Awaiting cryptocurrency payment ...', 'unuspay-edd'), $user) . '<br/>');
-
-        edd_empty_cart();
-        edd_send_to_success_page();
-    } else {
-        unuspay_edd_log_error("[unuspay_edd_process_payment] Payment creation failed while processing unuspay crypto payment. Payment data: " . json_encode($payment_data));
-        edd_record_gateway_error(__('Payment Error', 'unuspay-edd'), sprintf(__('Payment creation failed while processing crypto purchase. Payment data: %s', 'unuspay-edd'), json_encode($payment_data)), $payment);
-        edd_send_back_to_checkout('?payment-mode=' . $purchase_data['post_data']['edd-gateway']);
-    }*/
+    
 }
 
 function getUnusPayOrder($order)
@@ -304,17 +272,17 @@ function unuspay_edd_cryptocoin_payment($payment)
             $unuspay_edd_payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
 
             if (!$payment || !$payment->ID) {
-                echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
-                echo "<p class='edd-alert edd-alert-error'>" . esc_html(__('Unable to get payment object. You can contact the email(contact@unuspay.com) to get more help.', 'unuspay-edd')) . '</p>';
+                echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__('Unable to get payment object. You can contact the email(contact@unuspay.com) to get more help.', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</p>';
                 return false;
             } else {
                 if ($amount < 0) {
-                    echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
-                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(__("The order amount must be greater than or equal to 0. Please contact us(contact@unuspay.com) if you need assistance.", 'unuspay-edd') . esc_html(" ") . esc_html($currency)) . "</p>";
+                    echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The order amount must be greater than or equal to 0. Please contact us(contact@unuspay.com) if you need assistance.", 'unuspay-crypto-payments-for-easy-digital-downloads') . esc_html(" ") . esc_html($currency)) . "</p>";
                     return false;
                 } elseif (!$unuspay_edd_payment_key || $unuspay_edd_payment_key == "") {
-                    echo '<h3>' . esc_html(__('ERROR', 'unuspay-edd')) . '</h3>' . esc_html(PHP_EOL);
-                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(__("The merchant did not set the plugin configuration. Please contact merchant or us(contact@unuspay.com) if you need assistance.", 'unuspay-edd')) . "</p>";
+                    echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The merchant did not set the plugin configuration. Please contact merchant or us(contact@unuspay.com) if you need assistance.", 'unuspay-crypto-payments-for-easy-digital-downloads')) . "</p>";
                     return false;
                 } else {
                     unuspay_edd_generate_checkout_token($orderID, $amount, $currency);
@@ -448,10 +416,7 @@ function unuspay_edd_plugins_loaded()
 
     if (isset($unuspay_edd_payment_key) && $unuspay_edd_payment_key != "") {
         return false;
-    } else {
-        wp_enqueue_style('unuspay-edd-notice-banner-style', plugin_dir_url(__FILE__) . 'assets/css/unuspay-usage-notice.css');
-        add_action('admin_notices', 'unuspay_edd_render_usage_notice');
-    }
+    } 
 }
 
 
@@ -637,18 +602,7 @@ function track_payment($request)
     $response = rest_ensure_response(json_decode(wp_remote_retrieve_body($post),true));
     $response->set_status(200);
     return $response;
-   /*  if (!is_wp_error($post) && (wp_remote_retrieve_response_code($post) == 200 ) && json_decode(wp_remote_retrieve_body($post))->code == 200) {
-        $response->set_status(200);
-    } else {
-        if (is_wp_error($post)) {
-            error_log($post->get_error_message());
-        } else {
-            error_log(wp_remote_retrieve_body($post));
-        }
-        $response->set_status(500);
-    }
-
-    return $response; */
+   
 }
 
 function check_release($request)
@@ -737,7 +691,6 @@ function check_release($request)
                 if (empty($failed_reason)) {
                     $failed_reason = 'MISMATCH';
                 }
-                error_log('Validation failed: ' . $failed_reason);
                 $wpdb->query(
                     $wpdb->prepare(
                         "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
@@ -819,7 +772,6 @@ function process_notify(WP_REST_Request $request)
     );
 
     if (empty($existing_transaction_id)) {
-        error_log('Transaction not found for tracking_uuid');
         $response->set_status(404);
         return $response;
     }
@@ -869,7 +821,6 @@ function process_notify(WP_REST_Request $request)
         if (empty($failed_reason)) {
             $failed_reason = 'MISMATCH';
         }
-        error_log('Validation failed: ' . $failed_reason);
         $wpdb->query(
             $wpdb->prepare(
                 "UPDATE {$wpdb->prefix}edd_unuspay_transactions SET failed_reason = %s, status = %s, confirmed_by = %s WHERE tracking_uuid = %s",
