@@ -398,7 +398,7 @@ add_action('init', 'unuspay_edd_disable_checkout_userInfo_details');
 
 function unuspay_edd_payment_icon($icons = array())
 {
-    $icons[plugins_url('assets/images/img_logo_1.png', __FILE__)] = 'Unuspay';
+    $icons[esc_url(plugins_url('assets/images/img_logo_1.png', __FILE__))] = 'Unuspay';
 
     return $icons;
 }

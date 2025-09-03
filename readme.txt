@@ -9,7 +9,7 @@ Requires Plugins: easy-digital-downloads
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Accept Web3 payments, supporting various cryptocurrency tokens, blockchains and wallets, with the UnusPay Payments extension for WooCommerce.
+Accept Web3 payments, supporting various cryptocurrency tokens, blockchains and wallets, with the UnusPay Payments extension for Easy-digital-downloads.
 
 == Source Code ==
 
@@ -19,7 +19,7 @@ Source files can be found at:
 
 == Public REST API Endpoints ==
 
-This plugin registers several public REST API endpoints under the `/wp-json/unuspay/wc/` namespace. These endpoints are intentionally exposed without authentication (`__return_true`) for integration with the UnusPay payment platform. They are safe for public use and designed for communication between the WooCommerce store and UnusPay.
+This plugin registers several public REST API endpoints under the `/wp-json/unuspay/wc/` namespace. These endpoints are intentionally exposed without authentication (`__return_true`) for integration with the UnusPay payment platform. They are safe for public use and designed for communication between the Easy-digital-downloads store and UnusPay.
 
 - `/wp-json/unuspay/wc/checkouts/{id}`  
   Used by the user to create a UnusPay order and initiate the payment process.
