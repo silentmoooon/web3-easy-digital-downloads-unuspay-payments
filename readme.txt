@@ -13,9 +13,13 @@ Accept Web3 payments, supporting various cryptocurrency tokens, blockchains and 
 
 == Source Code ==
 
-The plugin includes minified assets in the /assets/js folder.  
+The plugin includes minified assets  assets/js/widgets.bundle.js,
 Source files can be found at:  
 [widgets](https://github.com/unuspay/widgets)
+To build the final production bundle, run:
+npm install
+npm run build --ws 
+npm run build:bundle
 
 == Public REST API Endpoints ==
 
