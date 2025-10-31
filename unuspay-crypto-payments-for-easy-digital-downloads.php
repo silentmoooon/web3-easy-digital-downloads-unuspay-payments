@@ -28,7 +28,7 @@ function unuspay_edd_register_gateway($gateways)
 {
     $gateways[UNUSPAY_GATEWAY_NAME] = array(
         'admin_label' => 'Unuspay Gateway',
-        'checkout_label' => esc_html__('Unuspay Crypto Payment Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads'),
+        'checkout_label' => esc_html__('Unuspay Crypto Payment Gateway', 'easy-digital-downloads'),
     );
     return $gateways;
 }
@@ -82,7 +82,7 @@ add_filter('edd_payment_gateways', 'unuspay_edd_register_gateway');
 // Register a subsection for Unuspay Gateway in gateway options tab
 function unuspay_edd_register_gateway_section($gateway_sections)
 {
-    $gateway_sections[UNUSPAY_GATEWAY_NAME] = esc_html__('Unuspay Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads');
+    $gateway_sections[UNUSPAY_GATEWAY_NAME] = esc_html__('Unuspay Gateway', 'easy-digital-downloads');
     return $gateway_sections;
 }
 
@@ -102,16 +102,16 @@ function unuspay_edd_add_gateway_settings($gateway_settings)
    
         UNUSPAY_GATEWAY_NAME . '_title' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_title',
-            'name' => esc_html__('Title', 'unuspay-crypto-payments-for-easy-digital-downloads'),
-            'desc' => esc_html__('Payment method title that the customer will see on your checkout page', 'unuspay-crypto-payments-for-easy-digital-downloads'),
+            'name' => esc_html__('Title', 'easy-digital-downloads'),
+            'desc' => esc_html__('Payment method title that the customer will see on your checkout page', 'easy-digital-downloads'),
             'type' => 'text',
             'size' => 'regular',
             'std' => $unuspay_edd_title
         ),
         UNUSPAY_GATEWAY_NAME . '_payment_key' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_payment_key',
-            'name' => esc_html__('PaymentKey', 'unuspay-crypto-payments-for-easy-digital-downloads'),
-            'desc' => esc_html__('Unuspay Payment Key', 'unuspay-crypto-payments-for-easy-digital-downloads'),
+            'name' => esc_html__('PaymentKey', 'easy-digital-downloads'),
+            'desc' => esc_html__('Unuspay Payment Key', 'easy-digital-downloads'),
             'type' => 'text',
             'size' => 'regular',
             'std' => $unuspay_edd_payment_key
@@ -137,7 +137,7 @@ function unuspay_edd_init_settings()
 
 
     if (!$unuspay_edd_title) {
-        $unuspay_edd_title = esc_html__('Unuspay Crypto Payment Gateway', 'unuspay-crypto-payments-for-easy-digital-downloads');
+        $unuspay_edd_title = esc_html__('Unuspay Crypto Payment Gateway', 'easy-digital-downloads');
         edd_update_option(UNUSPAY_GATEWAY_NAME . '_title', $unuspay_edd_title);
     }
 
@@ -145,13 +145,135 @@ function unuspay_edd_init_settings()
     edd_update_option(UNUSPAY_GATEWAY_NAME . '_payment_key', $unuspay_edd_payment_key);
  
 }
+/* add_filter('edd_settings_gateways-edd_unuspay_gateway_sanitize', 'unuspay_validate_api_key');
+
+function unuspay_validate_api_key($input) {
+    // 检查是否提交了 API Key
+    if (isset($input[UNUSPAY_GATEWAY_NAME . '_payment_key']) && !empty($input[UNUSPAY_GATEWAY_NAME . '_payment_key'])) {
+        $api_key = sanitize_text_field($input[UNUSPAY_GATEWAY_NAME . '_payment_key']);
+        
+         // 如果为空，直接阻止保存
+    if (empty($api_key)) {
+        
+        add_settings_error('edd-settings', 'invalid-api-key', '[Unuspay] Payment Key cannot be empty.');
+        
+        $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
+        return $input;
+    }
+
+    $headers = array(
+            'Content-Type' => 'application/json; charset=utf-8'
+        );
+     $website = get_option("siteurl");
+    $endpoint = 'https://dapp.unuspay.com/api/plugin/collect';
+    $response = wp_remote_post( $endpoint,
+                array(
+                    'headers' => $headers,
+                    'body' => json_encode([
+                        'website' => $website,
+                        'paymentKey' => $api_key,
+                        'platform' => 'edd'
+                    ]),
+                    'method' => 'POST',
+                    'data_format' => 'body'
+                )
+            );
+                
+
+    if (is_wp_error($response)) {
+         add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
+          $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+
+ 
+    $rspBody = json_decode(wp_remote_retrieve_body($response));
+    if ($rspBody->code == 404) {
+        add_settings_error('edd-settings', 'failed', '[Unuspay] Invalid Payment Key. Please check and try again.');
+          $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+    if ($rspBody->code != 200) {
+        add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
+          $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+    // 有效，正常 sanitization
+    $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = $api_key;
+    }
+    
+    return $input;
+}
+  */
+
+
+add_filter('edd_settings_gateways_sanitize', 'unuspay_validate_api_key');
+
+function unuspay_validate_api_key($input) {
+
+    
+    // 检查是否提交了 API Key
+        $api_key = sanitize_text_field($input[UNUSPAY_GATEWAY_NAME . '_payment_key']);
+        
+  /*        // 如果为空，直接阻止保存
+    if (empty($api_key)) {
+        
+        add_settings_error('edd-settings', 'invalid-api-key', '[Unuspay] Payment Key cannot be empty.');
+        
+        $input[$input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key']] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
+        return $input;
+    }
+ */
+    $headers = array(
+            'Content-Type' => 'application/json; charset=utf-8'
+        );
+     $website = get_option("siteurl");
+    $endpoint = 'https://dapp.unuspay.com/api/plugin/collect';
+    $response = wp_remote_post( $endpoint,
+                array(
+                    'headers' => $headers,
+                    'body' => json_encode([
+                        'website' => $website,
+                        'paymentKey' => $api_key,
+                        'platform' => 'edd'
+                    ]),
+                    'method' => 'POST',
+                    'data_format' => 'body'
+                )
+            );
+                
+
+    if (is_wp_error($response)) {
+         add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
+          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+
+ 
+    $rspBody = json_decode(wp_remote_retrieve_body($response));
+    if ($rspBody->code == 404) {
+        add_settings_error('edd-settings', 'failed', '[Unuspay] Invalid Payment Key. Please check and try again.');
+          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+    if ($rspBody->code != 200) {
+        add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
+          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+       return $input;
+    }
+    // 有效，正常 sanitization
+   $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = $api_key;
+    
+    return $input;
+}
+ 
 
 function unuspay_edd_process_payment($purchase_data)
 {
     try {
         global $wpdb;
         if (!wp_verify_nonce($purchase_data['gateway_nonce'], 'edd-gateway')) {
-            wp_die(esc_html__('Nonce verification has failed', 'unuspay-crypto-payments-for-easy-digital-downloads'), esc_html__('Error', 'unuspay-crypto-payments-for-easy-digital-downloads'), array('response' => 403));
+            wp_die(esc_html__('Nonce verification has failed', 'easy-digital-downloads'), esc_html__('Error', 'easy-digital-downloads'), array('response' => 403));
         }
 
         $payment_data = array(
@@ -191,7 +313,7 @@ function unuspay_edd_process_payment($purchase_data)
            
         }
     } catch (Exception $e) {
-        wp_die(esc_html__('Storing checkout failed', 'unuspay-crypto-payments-for-easy-digital-downloads'), esc_html__('Error', 'unuspay-crypto-payments-for-easy-digital-downloads'), array('response' => 403));
+        wp_die(esc_html__('Storing checkout failed', 'easy-digital-downloads'), esc_html__('Error', 'easy-digital-downloads'), array('response' => 403));
 
       
     }
@@ -272,17 +394,17 @@ function unuspay_edd_cryptocoin_payment($payment)
             $unuspay_edd_payment_key = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
 
             if (!$payment || !$payment->ID) {
-                echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
-                echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__('Unable to get payment object. You can contact the email(contact@unuspay.com) to get more help.', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</p>';
+                echo '<h3>' . esc_html(esc_html__('ERROR', 'easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__('Unable to get payment object. You can contact the email(contact@unuspay.com) to get more help.', 'easy-digital-downloads')) . '</p>';
                 return false;
             } else {
                 if ($amount < 0) {
-                    echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
-                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The order amount must be greater than or equal to 0. Please contact us(contact@unuspay.com) if you need assistance.", 'unuspay-crypto-payments-for-easy-digital-downloads') . esc_html(" ") . esc_html($currency)) . "</p>";
+                    echo '<h3>' . esc_html(esc_html__('ERROR', 'easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The order amount must be greater than or equal to 0. Please contact us(contact@unuspay.com) if you need assistance.", 'easy-digital-downloads') . esc_html(" ") . esc_html($currency)) . "</p>";
                     return false;
                 } elseif (!$unuspay_edd_payment_key || $unuspay_edd_payment_key == "") {
-                    echo '<h3>' . esc_html(esc_html__('ERROR', 'unuspay-crypto-payments-for-easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
-                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The merchant did not set the plugin configuration. Please contact merchant or us(contact@unuspay.com) if you need assistance.", 'unuspay-crypto-payments-for-easy-digital-downloads')) . "</p>";
+                    echo '<h3>' . esc_html(esc_html__('ERROR', 'easy-digital-downloads')) . '</h3>' . esc_html(PHP_EOL);
+                    echo "<p class='edd-alert edd-alert-error'>" . esc_html(esc_html__("The merchant did not set the plugin configuration. Please contact merchant or us(contact@unuspay.com) if you need assistance.", 'easy-digital-downloads')) . "</p>";
                     return false;
                 } else {
                     unuspay_edd_generate_checkout_token($orderID, $amount, $currency);
