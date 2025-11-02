@@ -91,14 +91,40 @@ add_filter('edd_settings_sections_gateways', 'unuspay_edd_register_gateway_secti
 
 $unuspay_edd_title = "";
 $unuspay_edd_payment_key = "";
+$unuspay_edd_validate_status="";
 
 // Register the Unuspay Gateway settings for Unuspay Gateway subsection
 function unuspay_edd_add_gateway_settings($gateway_settings)
 {
-    global $unuspay_edd_title, $unuspay_edd_payment_key;
+
+    
+    global $unuspay_edd_title, $unuspay_edd_payment_key,$unuspay_edd_validate_status;
+    $unuspay_edd_validate_status=get_option(UNUSPAY_GATEWAY_NAME . '_validate_status');
+    $aurpay_intro = "";
+    if (isset($unuspay_edd_validate_status) && $unuspay_edd_validate_status == "1") {
+        update_option(UNUSPAY_GATEWAY_NAME . '_validate_status','0');
+             $aurpay_intro = '<p style="color:red"><b>[Unuspay] Invalid Payment Key. Please check and try again.</b></p><p><br></p>';
+
+    } 
+    $aurpay_intro .= '<p style="margin-top: 10px"><b>AURPAY official <a href="https://unuspay.com/" target="_blank">website.</a></b></p>';
+    $aurpay_intro .= '<p style="margin-top: 10px;">UnusPay provides decentralized, trusted crypto payment solutions to thousands of businesses. Scale your operations, increase revenue, and drive conversions in the digital economy.</p>';
+    $aurpay_intro .= '<p style="margin-top: 20px;"><a href="https://dapp.unuspay.com/dashboard/" target="_blank">Get Started</a></p>';
 
  
     $unuspay_settings = array(
+
+        UNUSPAY_GATEWAY_NAME => array(
+            'id' => UNUSPAY_GATEWAY_NAME,
+            'name' => '<a id="aurpay"></a><strong>' . __('UnusPay', 'easy-digital-downloads') . '</strong>',
+            'desc' => __('UnusPay official website.', 'easy-digital-downloads'),
+            'type' => 'header',
+        ),
+        UNUSPAY_GATEWAY_NAME . '_intro' => array(
+            'id' => UNUSPAY_GATEWAY_NAME . '_intro',
+            'name' => "<a target='_blank' href='https://unuspay.com/'><img border='0' style='width: 190px;height: 60px;'src='" . plugins_url('/assets/images/logo_unuspay_2.png', __FILE__) . "'></a>",
+            'desc' => $aurpay_intro,
+            'type' => 'descriptive_text',
+        ),
    
         UNUSPAY_GATEWAY_NAME . '_title' => array(
             'id' => UNUSPAY_GATEWAY_NAME . '_title',
@@ -116,6 +142,7 @@ function unuspay_edd_add_gateway_settings($gateway_settings)
             'size' => 'regular',
             'std' => $unuspay_edd_payment_key
         ),
+        
 
     );
 
@@ -145,7 +172,7 @@ function unuspay_edd_init_settings()
     edd_update_option(UNUSPAY_GATEWAY_NAME . '_payment_key', $unuspay_edd_payment_key);
  
 }
-/* add_filter('edd_settings_gateways-edd_unuspay_gateway_sanitize', 'unuspay_validate_api_key');
+add_filter('edd_settings_gateways-edd_unuspay_gateway_sanitize', 'unuspay_validate_api_key');
 
 function unuspay_validate_api_key($input) {
     // 检查是否提交了 API Key
@@ -155,9 +182,6 @@ function unuspay_validate_api_key($input) {
          // 如果为空，直接阻止保存
     if (empty($api_key)) {
         
-        add_settings_error('edd-settings', 'invalid-api-key', '[Unuspay] Payment Key cannot be empty.');
-        
-        $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
         return $input;
     }
 
@@ -190,82 +214,24 @@ function unuspay_validate_api_key($input) {
     $rspBody = json_decode(wp_remote_retrieve_body($response));
     if ($rspBody->code == 404) {
         add_settings_error('edd-settings', 'failed', '[Unuspay] Invalid Payment Key. Please check and try again.');
-          $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+        $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+        update_option(UNUSPAY_GATEWAY_NAME . '_validate_status','1'); 
        return $input;
     }
     if ($rspBody->code != 200) {
         add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
-          $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
+        $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
        return $input;
     }
+
+     update_option(UNUSPAY_GATEWAY_NAME . '_validate_status','0');
     // 有效，正常 sanitization
     $input[UNUSPAY_GATEWAY_NAME . '_payment_key'] = $api_key;
     }
     
     return $input;
 }
-  */
-
-
-add_filter('edd_settings_gateways_sanitize', 'unuspay_validate_api_key');
-
-function unuspay_validate_api_key($input) {
-
-    
-    // 检查是否提交了 API Key
-        $api_key = sanitize_text_field($input[UNUSPAY_GATEWAY_NAME . '_payment_key']);
-        
-  /*        // 如果为空，直接阻止保存
-    if (empty($api_key)) {
-        
-        add_settings_error('edd-settings', 'invalid-api-key', '[Unuspay] Payment Key cannot be empty.');
-        
-        $input[$input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key']] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', '');
-        return $input;
-    }
- */
-    $headers = array(
-            'Content-Type' => 'application/json; charset=utf-8'
-        );
-     $website = get_option("siteurl");
-    $endpoint = 'https://dapp.unuspay.com/api/plugin/collect';
-    $response = wp_remote_post( $endpoint,
-                array(
-                    'headers' => $headers,
-                    'body' => json_encode([
-                        'website' => $website,
-                        'paymentKey' => $api_key,
-                        'platform' => 'edd'
-                    ]),
-                    'method' => 'POST',
-                    'data_format' => 'body'
-                )
-            );
-                
-
-    if (is_wp_error($response)) {
-         add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
-          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
-       return $input;
-    }
-
  
-    $rspBody = json_decode(wp_remote_retrieve_body($response));
-    if ($rspBody->code == 404) {
-        add_settings_error('edd-settings', 'failed', '[Unuspay] Invalid Payment Key. Please check and try again.');
-          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
-       return $input;
-    }
-    if ($rspBody->code != 200) {
-        add_settings_error('edd-settings', 'failed', '[Unuspay] Failed to connect to the verification server.');
-          $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = edd_get_option(UNUSPAY_GATEWAY_NAME . '_payment_key', ''); // 不保存
-       return $input;
-    }
-    // 有效，正常 sanitization
-   $input[UNUSPAY_GATEWAY_NAME][UNUSPAY_GATEWAY_NAME . '_payment_key'] = $api_key;
-    
-    return $input;
-}
  
 
 function unuspay_edd_process_payment($purchase_data)
